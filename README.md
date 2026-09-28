@@ -1,16 +1,18 @@
-# AVESSO V2 — Perfis e Ambientes
+# AVESSO V3 — Login real + perfis
 
-Fundação visual do AVESSO com quatro experiências:
-- Super Admin AVESSO
-- Admin da Agência
-- Equipe
-- Cliente
+Conectado ao Supabase Auth e ao projeto AVESSO.
 
-## Teste rápido
-Abra `index.html` diretamente no navegador. Use os botões no topo para alternar entre os quatro ambientes.
+## Fluxo
+- Login único por e-mail/senha
+- `agency_owner`, `agency_admin`, `team_member` -> ambiente da agência
+- `client_user` -> Portal do Cliente
+- Sessão persistente e logout
+- Organização e cliente carregados do banco com RLS
 
-## Arquitetura definida
-Login único -> organização -> papel -> permissões -> ambiente.
-Papéis base: `super_admin`, `agency_owner`, `agency_admin`, `team_member`, `client_user`.
+## Rodar localmente
+1. `npm install`
+2. confira `.env.local`
+3. `npm run dev`
 
-Esta versão ainda usa dados demonstrativos. A próxima etapa é autenticação + Supabase + RLS/multi-tenant.
+## Deploy Vercel
+Cadastre as variáveis de `.env.example` no projeto da Vercel. A publishable key do Supabase é própria para frontend; não use service_role no navegador.
