@@ -1,13 +1,16 @@
-# AVESSO — Fundação V1
+# AVESSO V2 — Perfis e Ambientes
 
-Primeira fundação visual do AVESSO, criada do zero.
+Fundação visual do AVESSO com quatro experiências:
+- Super Admin AVESSO
+- Admin da Agência
+- Equipe
+- Cliente
 
-## Rodar
-1. `npm install`
-2. `npm run dev`
+## Teste rápido
+Abra `index.html` diretamente no navegador. Use os botões no topo para alternar entre os quatro ambientes.
 
-## Stack prevista
-Next.js + Supabase + Vercel.
+## Arquitetura definida
+Login único -> organização -> papel -> permissões -> ambiente.
+Papéis base: `super_admin`, `agency_owner`, `agency_admin`, `team_member`, `client_user`.
 
-## Fase atual
-Front-end demonstrativo da fundação: sidebar, Visão Geral, Comando, Clientes, Produção, Aprovações, Calendário, Financeiro, Equipe e Configurações. Os dados ainda são demonstrativos; Supabase entra na próxima fase.
+Esta versão ainda usa dados demonstrativos. A próxima etapa é autenticação + Supabase + RLS/multi-tenant.
