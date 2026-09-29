@@ -1,3 +1,16 @@
+# AVESSO V9 — Agenda Geral de Gravações
+
+- Agenda de gravações no Dashboard principal
+- Cliente + horário inicial/final + local + responsável + observações
+- Cadastro e edição pelo calendário
+- Detecção de conflito de horários antes de salvar
+- Menu Calendário abre a agenda geral em tela ampliada
+- Dados persistidos em `recording_sessions` no Supabase
+
+Mantém as funcionalidades das versões anteriores.
+
+Observação: dependências não estão instaladas no pacote local; a validação de build deve ocorrer na Vercel após o deploy.
+
 # AVESSO V3 — Login real + perfis
 
 Conectado ao Supabase Auth e ao projeto AVESSO.
