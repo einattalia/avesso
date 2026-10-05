@@ -23,3 +23,13 @@ test('contract initiation reports DNS failure without recording a new session',a
   assert.equal(r.status,503);assert.match(r.body.error,/DNS/);assert.match(r.body.error,/ENOTFOUND/);
   assert.equal(f.tables.contract_upload_sessions.length,initial);
 });
+
+test('unknown S3 finalization error reports exact step and HTTP status',async()=>{
+  for(const [command,description] of [['HeadObjectCommand','verificar o arquivo no R2'],['ListPartsCommand','consultar as partes no R2'],['CompleteMultipartUploadCommand','concluir as partes no R2']]){
+    const f=await fixture({r2Error:{name:'Unknown',$metadata:{httpStatusCode:403}},r2ErrorAt:command});
+    const result=await f.request({scope:'contract',action:'complete',id:'session'});
+    assert.equal(result.status,500);assert.ok(result.body.error.includes(description));assert.match(result.body.error,/HTTP 403/);
+    assert.equal(f.tables.contract_upload_sessions[0].state,'pending');assert.equal(f.calls.filter(c=>c==='rpc').length,0);
+  }
+  assert.equal(fileErrorDetails({Code:'InvalidPart',name:'Unknown',$metadata:{httpStatusCode:400}},'complete:r2-multipart').log.code,'InvalidPart');
+});

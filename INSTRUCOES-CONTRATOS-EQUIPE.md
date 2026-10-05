@@ -4,7 +4,7 @@
 
 1. No Supabase → SQL Editor, execute todo o arquivo `database/contracts-team-setup.sql`. O SQL R2 anterior (`r2-setup.sql`) deve já ter sido executado. Esta etapa é necessária mesmo para quem já configurou o R2.
 2. Extraia o ZIP e substitua os arquivos na raiz do repositório do AVESSO, incluindo `app`, `lib`, `database`, `tests`, `package.json` e `package-lock.json`. Faça commit no ramo conectado à Vercel.
-3. Mantenha as variáveis atuais da Vercel, incluindo `SUPABASE_SERVICE_ROLE_KEY` apenas no servidor, e o bucket privado `avesso-produtos`. Não são necessárias novas chaves ou outro bucket. Mantenha a política CORS já configurada.
+3. Mantenha as variáveis atuais da Vercel, incluindo `SUPABASE_SERVICE_ROLE_KEY` apenas no servidor, e o bucket privado `avesso-producoes`. Não são necessárias novas chaves ou outro bucket. Mantenha a política CORS já configurada.
 4. Aguarde o novo deploy ficar Ready. Confira o log da compilação; a geração completa desta revisão não pôde ser concluída neste ambiente por restrição de escrita.
 
 ## Como usar

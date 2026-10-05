@@ -1,12 +1,12 @@
-# Publicar AVESSO — contratos e equipe, versão 3
+# Publicar AVESSO — versão 6
 
-O ZIP contém `package.json`, `app`, `lib` e demais arquivos diretamente na raiz. Substitua os arquivos correspondentes do repositório conectado à Vercel, sem criar uma pasta externa adicional.
+O ZIP contém a aplicação diretamente na raiz. Substitua os arquivos do repositório conectado à Vercel, sem adicionar uma pasta externa.
 
-1. Execute `database/contracts-team-setup.sql` no SQL Editor do Supabase. Este SQL complementa `database/r2-setup.sql`, já fornecido na versão anterior.
-2. Extraia o ZIP e envie todos os arquivos para a raiz do repositório. Inclua as novas páginas/componentes e as rotas `/api/files` e `/api/team`.
-3. Faça commit no ramo `main` usado pela Vercel. Um Redeploy de commit antigo continuará usando código antigo.
-4. Mantenha as variáveis cadastradas em Production. Não substitua seus valores pelos exemplos de `.env.example`. A nova versão usa as mesmas variáveis, incluindo `SUPABASE_SERVICE_ROLE_KEY` no servidor.
-5. Confirme `R2_BUCKET_NAME=avesso-produtos` e a política CORS em `config/r2-cors.json` para `https://avesso-seven.vercel.app`.
-6. Quando o novo deploy ficar Ready, siga os testes de uso em `INSTRUCOES-CONTRATOS-EQUIPE.md`.
+1. Execute `database/briefing-production-setup.sql` no Supabase, após os SQLs anteriores de R2 e contratos/equipe.
+2. Envie os arquivos do ZIP à raiz do repositório e faça commit no ramo de produção, incluindo novas rotas e componentes.
+3. Preserve as variáveis já configuradas. Confira `R2_BUCKET_NAME=avesso-producoes`, ou o nome exato do bucket autorizado pela sua chave atual.
+4. Cadastre `APP_URL=https://avesso-seven.vercel.app` e mantenha `WHATSAPP_ENABLED=false` até configurar a Meta.
+5. Salve as variáveis e publique o novo commit. Confira que o deploy fica Ready. Um Redeploy de código antigo não inclui estas mudanças.
+6. Siga `INSTRUCOES-BRIEFING-WHATSAPP.md` para conferir as telas e ativar os avisos.
 
-A correção do JSX do Financeiro foi mantida. As pastas `fundacao-nextjs` e `html-standalone` são referências antigas; a aplicação fica na raiz.
+A aplicação fica na raiz; as subpastas de versões antigas são referências. As correções do Financeiro e os diagnósticos da finalização de arquivos foram preservados.

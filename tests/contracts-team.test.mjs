@@ -65,7 +65,7 @@ test('unification sums active static and carousel quotas into one editable Artes
     {id:'c',name:'Arte estática',monthly_quantity:50,is_active:false},
     {id:'d',name:'Vídeos',monthly_quantity:3,is_active:true}
   ]);
-  assert.equal(rows.length,2);assert.equal(rows[0].name,'Artes');assert.equal(rows[0].monthly_quantity,6);assert.equal(rows[0].extra_value,20);assert.equal(rows[1].name,'Vídeos');
+  assert.equal(rows.length,2);assert.equal(rows[0].name,'Criativos');assert.equal(rows[0].monthly_quantity,6);assert.equal(rows[0].extra_value,20);assert.equal(rows[1].name,'Vídeos');
 });
 test('unification skips archived rows, preserves undefined quotas and flags differing prices as undefined',()=>{
   const rows=normalizeContractItems([{id:'a',name:'Artes',monthly_quantity:null,extra_value:20,is_active:true},{id:'b',name:'Carrosséis',monthly_quantity:null,extra_value:40,is_active:true},{id:'c',name:'Estáticos',monthly_quantity:100,is_active:false,merged_into:'a'}]);

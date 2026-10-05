@@ -1,3 +1,9 @@
+# AVESSO — atualização 6
+
+Briefing separado de Contrato, anexos privados, Criativos, responsáveis e fluxo de produção com aprovação pelo cliente. Integração preparada para a API oficial do WhatsApp da Meta.
+
+**Comece por [INSTRUCOES-BRIEFING-WHATSAPP.md](INSTRUCOES-BRIEFING-WHATSAPP.md).** Execute o SQL adicional antes de publicar. A Meta exige configuração própria; os avisos ficam desativados por padrão. Veja [VALIDACAO.md](VALIDACAO.md) para os resultados e limites da verificação.
+
 # AVESSO V11 — Financeiro Operacional Real
 
 ## Integração Cloudflare R2
@@ -23,4 +29,4 @@ O banco usa `public.financial_entries` com RLS por organização/cliente.
 
 ## Contratos e equipe — versão 3
 
-Esta revisão inclui texto editável de contrato, anexos privados no R2, cadastro de Designers/Videomakers e responsáveis por entrega contratada. Artes reúne carrosséis e estáticos com quantidade mensal editável. Execute o SQL adicional `database/contracts-team-setup.sql` antes de publicar. As variáveis e o bucket R2 permanecem os mesmos. Leia `INSTRUCOES-CONTRATOS-EQUIPE.md` para uso, preservação dos registros anteriores e validação.
+Esta revisão inclui texto editável de contrato, anexos privados no R2, cadastro de Designers/Videomakers e responsáveis por entrega contratada. Criativos reúne carrosséis e estáticos com quantidade mensal editável. Execute o SQL adicional `database/contracts-team-setup.sql` antes de publicar. As variáveis e o bucket R2 permanecem os mesmos. Leia `INSTRUCOES-CONTRATOS-EQUIPE.md` para uso, preservação dos registros anteriores e validação.
