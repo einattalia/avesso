@@ -19,3 +19,11 @@ Após o deploy novo ficar Ready, tente anexar o PDF. Se houver falha, abra Verce
 ## Validação
 
 33 testes locais passaram, incluindo identificador inválido, espaços, erro DNS encadeado e falha no início do upload. A sintaxe dos 13 arquivos da aplicação foi transformada pelo SWC do Next.js. Os testes usam serviços externos substituídos. Não foi confirmado upload real nem executado um novo build completo nesta revisão; o build local anterior foi bloqueado por permissões de escrita do ambiente. O deploy e as variáveis de produção não foram alterados por este trabalho.
+
+## Finalização — revisão 5
+
+O diagnóstico agora identifica a subetapa de finalização e registra o status HTTP recebido do R2. Também reconhece erros S3 que trazem o código no campo Code. A revisão não altera o fluxo de arquivos nem conclui uploads sem validar tamanho e tipo.
+
+34 testes locais passaram e a sintaxe foi verificada. A função SQL de finalização do contrato foi testada no Supabase conectado, com o papel service_role, em uma transação encerrada com ROLLBACK. Não houve registro permanente do anexo; o envio continua pendente. O upload real no R2 ainda não foi confirmado e o build completo desta revisão deve ser confirmado na Vercel.
+
+Para atualizar a versão 4, substitua somente app/api/files/route.js e lib/r2-config.mjs pelos arquivos do pacote de atualização. Não há novo SQL. Faça commit e aguarde o deploy Ready; selecione o mesmo PDF para retomar. Se houver erro, copie a nova mensagem ou o log contendo operation e httpStatus.

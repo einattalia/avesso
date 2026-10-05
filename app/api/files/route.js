@@ -120,13 +120,18 @@ export async function POST(request) {
       return Response.json({aborted:true},{headers});
     }
     if(b.action==='complete') {
+      operation='complete:head-before';
       let object=await head(s3,s);
       if(!object) {
+        operation='complete:list-parts';
         const parts=validateParts(await listParts(s3,s),Number(s.file_size),s.part_size);
+        operation='complete:r2-multipart';
         await s3.send(new CompleteMultipartUploadCommand({Bucket:bucket,Key:s.object_key,UploadId:s.upload_id,MultipartUpload:{Parts:parts}}));
+        operation='complete:head-after';
         object=await head(s3,s);
       }
       if(!object || Number(object.ContentLength)!==Number(s.file_size) || object.ContentType!==s.mime_type) fail('O arquivo enviado não corresponde ao registro.',409);
+      operation='complete:database';
       const {data,error}=await admin.rpc(isContract?'avesso_finalize_contract_upload':'avesso_finalize_r2_upload',{session_id:s.id,actor_id:user.id});
       if(error) throw error;
       return Response.json(isContract?{completed:true,fileId:data}:{completed:true,versionNumber:data},{headers});
