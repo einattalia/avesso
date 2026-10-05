@@ -3,6 +3,7 @@ import {AbortMultipartUploadCommand,CompleteMultipartUploadCommand,CreateMultipa
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 import {adminDb,authenticate,config,demandAccess,contractAccess} from '../../../lib/r2-server';
 import {PART_SIZE,CONTRACT_TYPES,canReadClientVersion,fail,validateFile,validateParts} from '../../../lib/upload-policy.mjs';
+import {fileErrorDetails} from '../../../lib/r2-config.mjs';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const headers = {'Cache-Control':'private, no-store'};
@@ -19,12 +20,15 @@ async function head(s3,s) {
   catch(e) {if (e.$metadata?.httpStatusCode===404) return null; throw e;}
 }
 export async function POST(request) {
+  let operation='authenticate';
   try {
     const {db,user}=await authenticate(request);
     if (Number(request.headers.get('content-length')||0)>1048576) fail('Solicitação muito grande.',413);
     const raw=await request.text(); if(raw.length>262144) fail('Solicitação muito grande.',413);
     let b; try {b=JSON.parse(raw);} catch {fail('Solicitação inválida.');}
     if (!b || typeof b!=='object') fail('Solicitação inválida.');
+    const allowed=['list','saveText','read','init','resume','part','abort','complete'];
+    operation=allowed.includes(b.action)?b.action:'invalid';
     if(b.scope && !['demand','contract'].includes(b.scope)) fail('Área de arquivo inválida.');
     const isContract=b.scope==='contract';
     const sessionTable=isContract?'contract_upload_sessions':'r2_upload_sessions';
@@ -129,7 +133,8 @@ export async function POST(request) {
     }
     fail('Operação inválida.');
   } catch(e) {
-    if(!e.status) console.error('AVESSO file operation failed',e.code||e.name);
-    return Response.json({error:e.status?e.message:'Não foi possível concluir. Tente novamente; o envio pode ser retomado.'},{status:e.status||500,headers});
+    const detail=fileErrorDetails(e,operation);
+    if(!e.status) console.error('AVESSO file operation failed',detail.log);
+    return Response.json({error:detail.message},{status:detail.status,headers});
   }
 }

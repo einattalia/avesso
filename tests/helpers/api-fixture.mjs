@@ -2,7 +2,7 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 // Load the actual route and authorization code, replacing only external services.
-export async function fixture({routeName="files",member=true,client=false,token=true,parts,object,completed=false,legacy=false,rpcError=false}={}) {
+export async function fixture({routeName="files",member=true,client=false,token=true,parts,object,completed=false,legacy=false,rpcError=false,r2Error=null}={}) {
   const calls=[];
   const s={id:'session',user_id:'user',demand_id:'demand',object_key:'trusted/key',bucket:'bucket',upload_id:'multipart',file_name:'v.mp4',file_size:7,mime_type:'video/mp4',fingerprint:'a'.repeat(64),part_size:64*1024*1024,state:completed?'completed':'pending',version_number:completed?1:null,expires_at:new Date(Date.now()+86400000).toISOString()};
   const versions=[{id:'version',demand_id:'demand',storage_path:'trusted/key',storage_provider:legacy?'supabase':'r2',status:client?'draft':'sent_for_review'}];
@@ -15,8 +15,8 @@ export async function fixture({routeName="files",member=true,client=false,token=
   const commandNames=['AbortMultipartUploadCommand','CompleteMultipartUploadCommand','CreateMultipartUploadCommand','GetObjectCommand','HeadObjectCommand','ListPartsCommand','UploadPartCommand'];
   const aws=Object.fromEntries(commandNames.map(name=>[name,class {constructor(input){this.name=name;this.input=input;}}]));
   let currentObject=object;
-  aws.S3Client=class {async send(command){calls.push(command);switch(command.name){case 'CreateMultipartUploadCommand':return {UploadId:'new-upload'};case 'ListPartsCommand':return {Parts:parts||[{PartNumber:1,ETag:'tag',Size:7}]};case 'HeadObjectCommand':if(currentObject)return currentObject;throw {$metadata:{httpStatusCode:404}};case 'CompleteMultipartUploadCommand':currentObject={ContentLength:7,ContentType:command.input.Key.startsWith('contracts/')?'application/pdf':'video/mp4'};return {};default:return {};}}};
-  const context=vm.createContext({Request,Response,console:{error(){}},process:{env:{NEXT_PUBLIC_SUPABASE_URL:'https://supabase.test',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:'secret',R2_ACCOUNT_ID:'account',R2_ACCESS_KEY_ID:'access',R2_SECRET_ACCESS_KEY:'secret',R2_BUCKET_NAME:'bucket'}},Date});
+  aws.S3Client=class {async send(command){calls.push(command);if(r2Error)throw r2Error;switch(command.name){case 'CreateMultipartUploadCommand':return {UploadId:'new-upload'};case 'ListPartsCommand':return {Parts:parts||[{PartNumber:1,ETag:'tag',Size:7}]};case 'HeadObjectCommand':if(currentObject)return currentObject;throw {$metadata:{httpStatusCode:404}};case 'CompleteMultipartUploadCommand':currentObject={ContentLength:7,ContentType:command.input.Key.startsWith('contracts/')?'application/pdf':'video/mp4'};return {};default:return {};}}};
+  const context=vm.createContext({Request,Response,console:{error(){}},process:{env:{NEXT_PUBLIC_SUPABASE_URL:'https://supabase.test',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:'secret',R2_ACCOUNT_ID:'0123456789abcdef0123456789abcdef',R2_ACCESS_KEY_ID:'access',R2_SECRET_ACCESS_KEY:'secret',R2_BUCKET_NAME:'bucket'}},Date});
   const cached=new Map();
   async function synthetic(name,exports) {
     if(cached.has(name))return cached.get(name);
@@ -29,7 +29,7 @@ export async function fixture({routeName="files",member=true,client=false,token=
     if(name==='@supabase/supabase-js')return synthetic(name,{createClient:()=>db});
     if(name==='@aws-sdk/client-s3')return synthetic(name,aws);
     if(name==='@aws-sdk/s3-request-presigner')return synthetic(name,{getSignedUrl:async(_client,command)=>{calls.push(command);return `https://r2.test/${command.input.Key}`;}});
-    const path=name.includes('upload-policy')?'lib/upload-policy.mjs':name.includes('contract-items')?'lib/contract-items.mjs':name.includes('r2-server')?'lib/r2-server.js':name==='team-route'?'app/api/team/route.js':'app/api/files/route.js';
+    const path=name.includes('upload-policy')?'lib/upload-policy.mjs':name.includes('contract-items')?'lib/contract-items.mjs':name.includes('r2-config')?'lib/r2-config.mjs':name.includes('r2-server')?'lib/r2-server.js':name==='team-route'?'app/api/team/route.js':'app/api/files/route.js';
     const m=new vm.SourceTextModule(await readFile(new URL('../../'+path,import.meta.url),'utf8'),{context,identifier:name});cached.set(name,m);await m.link(load);return m;
   }
   const route=await load(routeName==='team'?'team-route':'route');await route.evaluate();
@@ -37,3 +37,4 @@ export async function fixture({routeName="files",member=true,client=false,token=
     const r=await route.namespace.POST(new Request('https://avesso.test/api/files',{method:'POST',headers:{authorization:'Bearer valid'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()};
   }};
 }
+
