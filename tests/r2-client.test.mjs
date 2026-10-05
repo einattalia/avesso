@@ -6,7 +6,7 @@ import {webcrypto} from 'node:crypto';
 
 async function clientFixture({failOnce=false,pause=false}={}) {
   const memory=new Map(),calls=[],parts=new Map();let attempts=0,fail=failOnce;
-  const context=vm.createContext({Blob,crypto:webcrypto,AbortController,Map,JSON,Array,Math,Uint8Array,Error,Promise,console,
+  const context=vm.createContext({Blob,File,crypto:webcrypto,AbortController,Map,JSON,Array,Math,Uint8Array,Error,Promise,console,
     setTimeout:fn=>setTimeout(fn,0),localStorage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},
     fetch:async(_url,options)=>{
       const b=JSON.parse(options.body);calls.push(b);
@@ -38,4 +38,13 @@ test('reselection resumes stored upload and skips already completed parts',async
   const recovered=await clientFixture();const key=`avesso-r2:user:demand:${fp}`;recovered.memory.set(key,JSON.stringify({id:'upload'}));recovered.parts.set(1,50);
   await recovered.module.uploadProduction(recovered.supabase,'demand',file(),()=>{});
   assert.equal(recovered.attempts,1);assert.ok(recovered.calls.some(c=>c.action==='resume'));assert.ok(!recovered.calls.some(c=>c.action==='init'));assert.equal(recovered.memory.size,0);
+});
+
+test('contract PDF uses its own target and scope, including MIME fallback',async()=>{
+  const f=await clientFixture();
+  await f.module.uploadContract(f.supabase,'contract',new File(['pdf content'],'Contrato.pdf',{lastModified:100}),()=>{});
+  const init=f.calls.find(c=>c.action==='init');
+  assert.equal(init.contractId,'contract');assert.equal(init.file.type,'application/pdf');
+  assert.ok(f.calls.every(c=>c.scope==='contract'&&!c.demandId));assert.equal(f.memory.size,0);
+  await assert.rejects(()=>f.module.uploadContract(f.supabase,'contract',file(),()=>{}),/PDF/);
 });

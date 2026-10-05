@@ -70,3 +70,8 @@ Não foi adicionada transcodificação: o navegador precisa suportar o codec do 
 - [R2: uploads e multipart](https://developers.cloudflare.com/r2/objects/upload-objects/)
 - [R2: lifecycle](https://developers.cloudflare.com/r2/buckets/object-lifecycles/)
 - [Supabase: validação de usuário](https://supabase.com/docs/reference/javascript/auth-getuser)
+
+
+## Contratos e equipe — versão 3
+
+Esta revisão inclui texto editável de contrato, anexos privados no R2, cadastro de Designers/Videomakers e responsáveis por entrega contratada. Artes reúne carrosséis e estáticos com quantidade mensal editável. Execute o SQL adicional `database/contracts-team-setup.sql` antes de publicar. As variáveis e o bucket R2 permanecem os mesmos. Leia `INSTRUCOES-CONTRATOS-EQUIPE.md` para uso, preservação dos registros anteriores e validação.
