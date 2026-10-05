@@ -1,5 +1,13 @@
 # AVESSO V11 — Financeiro Operacional Real
 
+## Integração Cloudflare R2
+
+Esta versão mantém Supabase para banco/autenticação e Vercel para hospedagem, com arquivos novos privados no R2. Leia **[CONFIGURAR-R2.md](CONFIGURAR-R2.md)** antes de publicar: inclui o SQL obrigatório, bucket, credenciais, CORS, variáveis e roteiro de teste. **[ARQUITETURA-R2.md](ARQUITETURA-R2.md)** documenta a inspeção do fluxo original e as alterações.
+
+Node 22.x: `npm ci`, `npm test`, `npm run build`. Configure o ambiente com `.env.example`. A aplicação principal fica na raiz; as subpastas são referências antigas.
+
+Foi corrigido também um fechamento de função ausente no JSX da lista financeira original, que impedia a compilação.
+
 Inclui tudo da V10 e adiciona Financeiro real conectado ao Supabase:
 - Financeiro geral da agência
 - Financeiro por cliente no Cliente 360°
