@@ -14,10 +14,10 @@ Copie a chave **service_role** do projeto para a variável privada `SUPABASE_SER
 
 ## 2. Cloudflare: bucket e credenciais
 
-1. Ative o R2 na sua conta Cloudflare e crie um bucket Standard chamado, por exemplo, `avesso-producoes`.
+1. Ative o R2 na sua conta Cloudflare e crie um bucket Standard chamado, por exemplo, `avesso-produtos`.
 2. Mantenha **Public Development URL / r2.dev desativado** e não conecte domínio público ao bucket. Os objetos são privados.
 3. Em **R2 → Manage R2 API tokens**, crie credenciais S3 com **Object Read & Write**, limitadas apenas a esse bucket. Guarde o **Access Key ID**, o **Secret Access Key** e o **Account ID**. O token geral da API Cloudflare não substitui essas credenciais S3.
-4. Em **bucket → Settings → CORS Policy**, copie `config/r2-cors.json`. Substitua `https://SEU-DOMINIO.com.br` pela origem exata do AVESSO, sem barra final. Adicione também a origem `https://SEU-PROJETO.vercel.app` se ela for usada. Inclua individualmente as origens de Preview que precisar testar. Remova `localhost` se não usar desenvolvimento local. Não use `*` como origem.
+4. Em **bucket → Settings → CORS Policy**, copie `config/r2-cors.json`. Substitua `https://avesso-seven.vercel.app` pela origem exata do AVESSO, sem barra final. Adicione também a origem `https://SEU-PROJETO.vercel.app` se ela for usada. Inclua individualmente as origens de Preview que precisar testar. Remova `localhost` se não usar desenvolvimento local. Não use `*` como origem.
 5. Em **Object lifecycle rules**, habilite uma regra para **abortar multipart incompleto depois de 7 dias**, abrangendo todos os objetos. A retomada no AVESSO vale por 6 dias. Não aplique regra de exclusão automática aos arquivos concluídos.
 
 O CORS permite PUT direto e GET/HEAD para leitura, além do cabeçalho Range necessário ao vídeo. Não torna o bucket público. URLs de envio expiram em 15 minutos e são renovadas a cada tentativa; URLs de leitura expiram em 1 hora e a tela as renova enquanto estiver aberta. Quem tiver uma URL assinada pode usá-la até expirar; sair da conta não revoga imediatamente um link já emitido.
@@ -37,7 +37,7 @@ Em **Project → Settings → Environment Variables**, cadastre:
 | `R2_ACCOUNT_ID` | Account ID do Cloudflare | Servidor |
 | `R2_ACCESS_KEY_ID` | Access Key ID do token restrito ao bucket | Segredo do servidor |
 | `R2_SECRET_ACCESS_KEY` | Secret Access Key do mesmo token | Segredo do servidor |
-| `R2_BUCKET_NAME` | `avesso-producoes`, ou nome escolhido | Servidor |
+| `R2_BUCKET_NAME` | `avesso-produtos`, ou nome escolhido | Servidor |
 | `R2_MAX_FILE_BYTES` | Opcional: `53687091200` por padrão, 50 GiB | Servidor |
 
 Configure os ambientes Production e Preview que forem usados, com buckets separados quando quiser isolar testes. Faça um novo deploy após cadastrar ou alterar as variáveis. Mantenha as configurações existentes de Auth/URLs permitidas do Supabase compatíveis com seu domínio. Nenhuma credencial R2 vai ao navegador.
