@@ -28,6 +28,19 @@ test('client cannot reserve time or edit another author reference',async()=>{
  assert.equal((await f.request({action:'saveEvent',clientId:'client',event:{}})).status,403);
  assert.equal((await f.request({action:'save',clientId:'client',section:'references',id:'ref',body:'Alterado',updatedAt:'now'})).status,403);
 });
+test('calendar reports actual time conflicts as 409 with the conflicting slot',async()=>{
+ const f=await fixture({routeName:'workspace',rpcError:{code:'P0001',message:'Conflito: Reunião em 07/10 09:00 até 07/10 10:00.'}});
+ const r=await f.request({action:'saveEvent',organizationId:'org',event:{title:'Gravação',kind:'recording',starts_at:'2026-10-07T12:00:00.000Z',ends_at:'2026-10-07T13:00:00.000Z',member_ids:[],buffer_before:0,buffer_after:0,shared:true}});
+ assert.equal(r.status,409);assert.match(r.body.error,/Conflito: Reunião/);
+});
+test('calendar separates invalid data from database failures instead of labeling both conflicts',async()=>{
+ const payload={action:'saveEvent',organizationId:'org',event:{title:'Gravação',kind:'recording',starts_at:'2026-10-07T12:00:00.000Z',ends_at:'2026-10-07T13:00:00.000Z',member_ids:[],buffer_before:0,buffer_after:0,shared:true}};
+ const invalid=await fixture({routeName:'workspace',rpcError:{code:'P0001',message:'Invalid team'}});
+ const db=await fixture({routeName:'workspace',rpcError:{code:'XX000',message:'Internal database error'}});
+ const a=await invalid.request(payload),b=await db.request(payload);
+ assert.equal(a.status,400);assert.match(a.body.error,/inválidos/);
+ assert.equal(b.status,500);assert.match(b.body.error,/A agenda não foi alterada/);
+});
 test('stale reference edits do not overwrite changes',async()=>{
  const f=await fixture({routeName:'workspace'});f.tables.client_materials.push({id:'ref',client_id:'client',section:'references',author_id:'user',updated_at:'new',body:'Atual'});
  const r=await f.request({action:'save',clientId:'client',section:'references',id:'ref',body:'Antigo',updatedAt:'old'});

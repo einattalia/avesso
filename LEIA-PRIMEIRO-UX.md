@@ -46,7 +46,7 @@ A consulta ao projeto na Vercel também havia retornado 403 de permissão. O ZIP
 
 ## Verificação executada
 
-- 55 testes automatizados de API/políticas passaram, incluindo os 42 testes anteriores.
+- 57 testes automatizados de API/políticas passaram, incluindo os 42 testes anteriores. Inclui classificação clara de conflito real, dados inválidos e falha interna ao salvar eventos.
 - SQL executado em PostgreSQL local isolado (PGlite), com dados sintéticos: migração, conflitos, intervalos, cancelamentos, responsáveis diferentes, permissões, histórico de texto, conversão sem duplicação e decisão de revisão atômica.
 - Build Next.js de produção passou. Testes e compilação foram executados com Node 24 disponível no ambiente; o projeto mantém Node 22 na hospedagem. Validar também nessa versão antes de publicar.
 - Nenhuma migração ou conteúdo de teste foi gravado no banco compartilhado. Nenhuma notificação real foi enviada.

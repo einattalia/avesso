@@ -56,7 +56,16 @@ export async function POST(request){try{
  if(b.action==='saveEvent'){
   staff();let e;try{e=eventPayload(b.event)}catch(err){fail(err.message)};if(!e.title)fail('Informe o título.');
   const cid=b.event.client_id||null;if(client&&cid!==client.id)fail('Cliente inválido.',403);
-  const {data,error}=await admin.rpc('avesso_save_calendar_event',{actor:user.id,org:orgId,event_id:b.id||null,customer:cid,payload:e});if(error)fail(error.message.includes('Conflito:')?error.message:'Não foi possível salvar o compromisso. Confira os dados.',409);return Response.json({id:data},{headers});
+  const {data,error}=await admin.rpc('avesso_save_calendar_event',{actor:user.id,org:orgId,event_id:b.id||null,customer:cid,payload:e});
+  if(error){
+   const message=String(error.message||'');
+   if(message.startsWith('Conflito:'))fail(message,409);
+   if(message==='Permission denied')fail('Sua conta não tem permissão para salvar compromissos.',403);
+   if(['Invalid client','Invalid team','Invalid period'].includes(message))fail('Os dados do compromisso mudaram ou estão inválidos. Atualize a agenda e tente novamente.',400);
+   console.error('AVESSO calendar save failed',{code:error.code||'unknown'});
+   fail('Falha ao salvar o compromisso. A agenda não foi alterada. Tente novamente; se persistir, informe o suporte.',500);
+  }
+  return Response.json({id:data},{headers});
  }
  // A subject is always re-authorized before reading comments or signing an attachment.
  let subject;
