@@ -9,7 +9,7 @@ const headers={'Cache-Control':'private, no-store'};
 export async function POST(request) {
   try {
     const {db,user}=await authenticate(request);
-    const raw=await request.text();if(raw.length>8192)fail('Solicitação muito grande.',413);
+    const raw=await request.text();if(raw.length>32768)fail('Solicitação muito grande.',413);
     let b;try{b=JSON.parse(raw)}catch{fail('Solicitação inválida.')}
     if(!b||!['send','deliver','status','approve','changes','notifications','retryNotification','history'].includes(b.action))fail('Operação inválida.');
     const {agency}=await demandAccess(db,user,b.demandId,!['approve','changes'].includes(b.action));
@@ -27,7 +27,8 @@ export async function POST(request) {
       if(error)throw error;return Response.json({notifications:data||[],notice},{headers});
     }
     if(['approve','changes'].includes(b.action)&&agency)fail('A decisão deve ser registrada pelo cliente no portal.',403);
-    const {data,error}=await admin.rpc('avesso_production_action',{target_demand:b.demandId,target_version:b.versionId||null,actor_id:user.id,action_name:b.action,new_status:b.status||null});
+    if(b.action==='changes'&&(!b.note?.trim()||b.note.length>20000))fail('Descreva os ajustes necessários (até 20.000 caracteres).');
+    const {data,error}=await (['approve','changes'].includes(b.action)?admin.rpc('avesso_review_with_note',{target_demand:b.demandId,target_version:b.versionId,actor_id:user.id,decision:b.action,note:b.note||''}):admin.rpc('avesso_production_action',{target_demand:b.demandId,target_version:b.versionId||null,actor_id:user.id,action_name:b.action,new_status:b.status||null}));
     if(error){console.error('AVESSO production transaction failed',{code:error.code});fail('Não foi possível atualizar a atividade. Confira se esta versão ainda está disponível e se o SQL de briefing e produção foi executado.',409)}
     let notice=null,url=null;
     if(b.action==='send') {

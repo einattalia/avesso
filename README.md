@@ -1,3 +1,7 @@
+# AVESSO — Cliente 360 / UX 0.12
+
+Leia **[LEIA-PRIMEIRO-UX.md](LEIA-PRIMEIRO-UX.md)** para recursos, testes, migração pendente e publicação.
+
 # AVESSO — atualização 6
 
 Briefing separado de Contrato, anexos privados, Criativos, responsáveis e fluxo de produção com aprovação pelo cliente. Integração preparada para a API oficial do WhatsApp da Meta.

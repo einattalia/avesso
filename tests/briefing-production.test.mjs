@@ -39,3 +39,11 @@ test('approval messages normalize Brazil phones and carry a portal link without 
   assert.equal(payload.template.components[1].parameters[0].text,'demand');assert.equal(payload.template.components[0].parameters[0].text,'Criativo de outubro');assert.ok(!JSON.stringify(payload).includes('r2.cloudflarestorage'));
   assert.equal(productionLabel('with_client'),'Aguardando aprovação');assert.equal(productionLabel('posted'),'Postado');
 });
+
+test('client must describe adjustment and agency cannot submit client decision',async()=>{
+ const client=await fixture({routeName:'production',client:true});
+ assert.equal((await client.request({action:'changes',demandId:'demand',versionId:'version',note:'  '})).status,400);
+ assert.equal((await client.request({action:'changes',demandId:'demand',versionId:'version',note:'Trocar a foto.'})).status,200);
+ const agency=await fixture({routeName:'production'});
+ assert.equal((await agency.request({action:'changes',demandId:'demand',versionId:'version',note:'Trocar foto'})).status,403);
+});
