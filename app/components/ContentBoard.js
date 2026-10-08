@@ -1,7 +1,7 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {workspaceApi,Thread,Dialog,Notice} from './ClientWorkspace';
-import {fileApi} from '../../lib/r2-client';
+import {fileApi,uploadProduction} from '../../lib/r2-client';
 import {productionLabel} from '../../lib/production-policy.mjs';
 const label=s=>({adjustments:'Ajustes solicitados',internal_review:'Revisão interna',briefing:'Briefing'})[s]||productionLabel(s);
 
@@ -17,6 +17,24 @@ function Preview({supabase,v,compact=false}){
  return <div className={'uxPreview '+(compact?'compact':'')}>{url?(v.mime_type?.startsWith('image/')?<img src={url} alt={v.file_name}/>:v.mime_type?.startsWith('video/')?<video src={url} controls={!compact} preload="metadata"/>:compact?<span>{v.file_name}</span>:<a href={url} target="_blank" rel="noopener noreferrer">Abrir {v.file_name}</a>):<span>{error||'Carregando prévia…'}</span>}</div>;
 }
 
+function ArtworkCard({d,v,supabase,agency,clientName,onOpen,onUploaded,onEdit,onMove}){
+ const [uploading,setUploading]=useState(false),[progress,setProgress]=useState(0),[message,setMessage]=useState('');
+ const controller=useRef(null);
+ useEffect(()=>()=>controller.current?.abort(),[]);
+ async function attach(event){
+  const input=event.target,file=input.files?.[0];if(!file)return;
+  const current=new AbortController();controller.current=current;setUploading(true);setProgress(0);setMessage('');
+  try{const result=await uploadProduction(supabase,d.id,file,setProgress,current.signal);setMessage(`${result.fileName||file.name} anexado a este post.`);await onUploaded?.()}
+  catch(error){setMessage(error.message)}
+  finally{setUploading(false);controller.current=null;input.value=''}
+ }
+ return <article className="productionArtCard">
+  <button className="uxContentCard" onClick={onOpen}><Preview supabase={supabase} v={v} compact/><div className="uxCardBody"><small>{d.type} · {d.clients?.name||clientName}</small><h3>{d.title}</h3><span className={'uxStatus '+d.status}>{label(d.status)}</span>{d.due_date&&<small>Prazo de produção: {d.due_date.split('-').reverse().join('/')}</small>}<p className="productionNext"><b>Próxima ação:</b> {d.status==='with_client'?(agency?'Cliente precisa aprovar':'Sua aprovação está pendente'):d.status==='approved'&&!d.publish_date?'Design precisa definir a publicação':d.status==='approved'?'Cliente aprovou · Design organiza a publicação':d.status==='internal_review'?'Revisão da equipe':d.status==='adjustments'?'Design precisa ajustar a arte':['scheduled','awaiting_scheduling'].includes(d.status)?'Design organiza a publicação':d.status==='posted'?'Publicado':'Design precisa produzir'}</p><footer>{d.publish_date?`Publicação: ${d.publish_date.split('-').reverse().join('/')}`:'Publicação a definir'}<span>{v?`V${v.version_number}`:'Sem anexo'}</span></footer>{d.approved_at&&<small className="approvedDate">Aprovado em {new Date(d.approved_at).toLocaleDateString('pt-BR')}</small>}</div></button>
+  {agency&&<div className="artCardActions"><label className="secondary uploadBtn productionAttach">{uploading?`Enviando ${progress}%`:'Anexar foto ou PDF a este post'}<input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" disabled={uploading} onChange={attach}/></label>{d.project_id&&<button className="artEdit" onClick={onEdit}>Editar arte</button>}{!d.project_id&&onMove&&<button className="artEdit" onClick={onMove}>Mover para projeto</button>}{uploading&&<button className="artEdit" onClick={()=>controller.current?.abort()}>Pausar</button>}</div>}
+  {message&&<small className={uploading?'':'artUploadMessage'} role="status">{message}</small>}
+ </article>;
+}
+
 export default function ContentBoard({supabase,client,ctx,renderDetail,onlyReview=false}){
  const [items,setItems]=useState([]),[projects,setProjects]=useState([]),[agency,setAgency]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[query,setQuery]=useState(''),[month,setMonth]=useState(''),[status,setStatus]=useState(onlyReview?'with_client':''),[selected,setSelected]=useState(null),[note,setNote]=useState(''),[expanded,setExpanded]=useState({}),[editor,setEditor]=useState(null),[form,setForm]=useState({}),[saving,setSaving]=useState(false);
  const request=b=>workspaceApi(supabase,{...b,clientId:client?.id,organizationId:ctx?.organization?.id||client?.organization_id});
@@ -29,7 +47,7 @@ export default function ContentBoard({supabase,client,ctx,renderDetail,onlyRevie
  function open(d){setSelected(d);setNote('')}
  async function decide(action){setBusy(true);setError('');try{await fileApi(supabase,{action,demandId:selected.id,versionId:latest(selected).id,note},'/api/production');setSelected(null);await load()}catch(e){setError(e.message)}finally{setBusy(false)}}
  function nextAction(d){if(d.status==='with_client')return agency?'Cliente precisa aprovar':'Sua aprovação está pendente';if(d.status==='approved'&&!d.publish_date)return 'Design precisa definir a publicação';if(d.status==='approved')return 'Cliente aprovou · Design organiza a publicação';if(d.status==='internal_review')return 'Revisão da equipe';if(d.status==='adjustments')return 'Design precisa ajustar a arte';if(['scheduled','awaiting_scheduling'].includes(d.status))return 'Design organiza a publicação';if(d.status==='posted')return 'Publicado';return 'Design precisa produzir';}
- function card(d){const v=latest(d);return <article key={d.id} className="productionArtCard"><button className="uxContentCard" onClick={()=>open(d)}><Preview supabase={supabase} v={v} compact/><div className="uxCardBody"><small>{d.type} · {d.clients?.name||client?.name}</small><h3>{d.title}</h3><span className={'uxStatus '+d.status}>{label(d.status)}</span>{d.due_date&&<small>Prazo de produção: {d.due_date.split('-').reverse().join('/')}</small>}<p className="productionNext"><b>Próxima ação:</b> {nextAction(d)}</p><footer>{d.publish_date?`Publicação: ${d.publish_date.split('-').reverse().join('/')}`:'Publicação a definir'}<span>{v?`V${v.version_number}`:'Sem anexo'}</span></footer>{d.approved_at&&<small className="approvedDate">Aprovado em {new Date(d.approved_at).toLocaleDateString('pt-BR')}</small>}</div></button>{agency&&d.project_id&&<button className="artEdit" onClick={()=>{setEditor({kind:'art',projectId:d.project_id,demandId:d.id});setForm({title:d.title,type:d.type,briefing:d.briefing||'',notes:d.notes||'',responsibleName:d.responsible_name||'',dueDate:d.due_date||''})}}>Editar arte</button>}{agency&&!d.project_id&&projects.some(p=>p.client_id===d.client_id)&&<button className="artEdit" onClick={()=>{setEditor({kind:'move',demandId:d.id,clientId:d.client_id});setForm({targetProjectId:projects.find(p=>p.client_id===d.client_id)?.id||''})}}>Mover para projeto</button>}</article>}
+ function card(d){const v=latest(d);return <ArtworkCard key={d.id} d={d} v={v} supabase={supabase} agency={agency} clientName={client?.name} onOpen={()=>open(d)} onUploaded={load} onEdit={()=>{setEditor({kind:'art',projectId:d.project_id,demandId:d.id});setForm({title:d.title,type:d.type,briefing:d.briefing||'',notes:d.notes||'',responsibleName:d.responsible_name||'',dueDate:d.due_date||''})}} onMove={!d.project_id&&projects.some(p=>p.client_id===d.client_id)?()=>{setEditor({kind:'move',demandId:d.id,clientId:d.client_id});setForm({targetProjectId:projects.find(p=>p.client_id===d.client_id)?.id||''})}:null}/>}
  const projectCards=projects.map(project=>({project,contents:filtered.filter(d=>d.project_id===project.id)})).filter(({project,contents})=>!query||project.title.toLowerCase().includes(query.toLowerCase())||contents.length);
  const loose=filtered.filter(d=>!d.project_id);
  async function saveProject(e){e.preventDefault();setSaving(true);setError('');try{await projectRequest({action:editor.projectId?'update':'create',...(editor.projectId?{projectId:editor.projectId}:{}),title:form.title,description:form.description});setEditor(null);await load()}catch(e){setError(e.message)}finally{setSaving(false)}}
