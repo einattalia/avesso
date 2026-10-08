@@ -13,7 +13,7 @@ export async function POST(request){
   const {db,user}=await authenticate(request);
   const raw=await request.text();if(raw.length>50000)fail('Solicitação muito grande.',413);
   let b;try{b=JSON.parse(raw)}catch{fail('Solicitação inválida.');}
-  if(!b||!['list','create','update','delete','createArt','updateArt','moveArt'].includes(b.action))fail('Operação inválida.');
+  if(!b||!['list','create','update','delete','createArt','updateArt','deleteArt','moveArt'].includes(b.action))fail('Operação inválida.');
 
   let client=null,organizationId=b.organizationId;
   if(b.clientId){client=checked(await db.from('clients').select('id,organization_id').eq('id',b.clientId).maybeSingle());if(!client)fail('Cliente indisponível.',404);organizationId=client.organization_id;}
@@ -51,11 +51,17 @@ export async function POST(request){
   }
   if(b.action==='moveArt'){
    if(!b.demandId)fail('Arte inválida.');
-   const art=checked(await admin.from('demands').select('id,client_id,project_id').eq('id',b.demandId).eq('organization_id',organizationId).maybeSingle());
+   const art=checked(await admin.from('demands').select('id,client_id,project_id').eq('id',b.demandId).eq('organization_id',organizationId).is('archived_at',null).maybeSingle());
    if(!art||client&&art.client_id!==client.id)fail('Arte indisponível.',404);
    if(art.client_id!==project.client_id)fail('A arte só pode ser movida para um projeto do mesmo cliente.',403);
    checked(await admin.from('demands').update({project_id:project.id}).eq('id',art.id).eq('organization_id',organizationId));
    return Response.json({moved:true},{headers});
+  }
+  if(b.action==='deleteArt'){
+   if(!b.demandId)fail('Arte inválida.');
+   const saved=checked(await admin.from('demands').update({archived_at:new Date().toISOString()}).eq('id',b.demandId).eq('project_id',project.id).eq('organization_id',organizationId).is('archived_at',null).select('id').maybeSingle());
+   if(!saved)fail('Arte indisponível ou já arquivada.',404);
+   return Response.json({archived:true},{headers});
   }
   if(b.action==='createArt'){
    const title=clean(b.title,200);if(!title)fail('Dê um nome para esta arte.');
@@ -65,7 +71,7 @@ export async function POST(request){
   if(b.action==='updateArt'){
    if(!b.demandId)fail('Arte inválida.');
    const title=clean(b.title,200);if(!title)fail('Dê um nome para esta arte.');
-   const row=checked(await admin.from('demands').update({title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:clean(b.responsibleName,160)||null,due_date:dateValue(b.dueDate)}).eq('id',b.demandId).eq('project_id',project.id).select('id,project_id,title,type,briefing,notes,responsible_name,due_date').maybeSingle());
+   const row=checked(await admin.from('demands').update({title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:clean(b.responsibleName,160)||null,due_date:dateValue(b.dueDate)}).eq('id',b.demandId).eq('project_id',project.id).is('archived_at',null).select('id,project_id,title,type,briefing,notes,responsible_name,due_date').maybeSingle());
    if(!row)fail('Arte indisponível.',404);
    return Response.json({art:row},{headers});
   }

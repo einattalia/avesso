@@ -14,9 +14,11 @@ create table if not exists public.production_projects (
 );
 
 alter table public.demands add column if not exists project_id uuid references public.production_projects(id) on delete set null;
+alter table public.demands add column if not exists archived_at timestamptz;
 alter table public.demands add column if not exists approved_at timestamptz;
 create index if not exists production_projects_client_active on public.production_projects(client_id,created_at desc) where archived_at is null;
 create index if not exists demands_project on public.demands(project_id,created_at desc);
+create index if not exists demands_active_org_created on public.demands(organization_id,created_at desc) where archived_at is null;
 
 alter table public.production_projects enable row level security;
 revoke all on public.production_projects from public,anon,authenticated;

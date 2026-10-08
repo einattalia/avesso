@@ -36,6 +36,15 @@ test('deleting a project unlinks but preserves its artwork',async()=>{
  assert.equal(f.tables.demands.length,1);assert.equal(f.tables.demands[0].project_id,null);
 });
 
+test('deleting an artwork archives it while preserving its files and card history',async()=>{
+ const f=await fixture({routeName:'projects'});
+ f.tables.production_projects.push({id:'project',client_id:'client',organization_id:'org',title:'Projeto',archived_at:null});
+ f.tables.demands[0].project_id='project';
+ const r=await f.request({action:'deleteArt',clientId:'client',projectId:'project',demandId:'demand'});
+ assert.equal(r.status,200);assert.equal(r.body.archived,true);
+ assert.ok(f.tables.demands[0].archived_at);assert.equal(f.tables.demand_versions.length,1);
+});
+
 test('agency can move a legacy artwork to a project for the same client',async()=>{
  const f=await fixture({routeName:'projects'});
  f.tables.production_projects.push({id:'project',client_id:'client',organization_id:'org',title:'Projeto',archived_at:null});

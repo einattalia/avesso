@@ -20,7 +20,7 @@ export async function POST(request){try{
  const {client,orgId,agency}=await access(db,user,b.clientId,b.organizationId);const admin=adminDb();
  const staff=()=>{if(!agency)fail('Ação disponível para a equipe.',403)};
  if(b.action==='contents'){
-  let q=admin.from('demands').select('id,client_id,organization_id,project_id,title,type,status,due_date,publish_date,approved_at,created_at,reference_id,'+(agency?'briefing,notes,responsible_name,':'')+'clients(name),demand_versions(id,demand_id,version_number,status,file_name,mime_type,file_size,caption,created_at)').eq('organization_id',orgId).order('created_at',{ascending:false});
+  let q=admin.from('demands').select('id,client_id,organization_id,project_id,title,type,status,due_date,publish_date,approved_at,created_at,reference_id,'+(agency?'briefing,notes,responsible_name,':'')+'clients(name),demand_versions(id,demand_id,version_number,status,file_name,mime_type,file_size,caption,created_at)').eq('organization_id',orgId).is('archived_at',null).order('created_at',{ascending:false});
   if(client)q=q.eq('client_id',client.id);
   const rows=checked(await q);
   let projectsQuery=admin.from('production_projects').select('id,client_id,title,description').eq('organization_id',orgId).is('archived_at',null);
@@ -54,7 +54,7 @@ export async function POST(request){try{
   if(!/^\d{4}-\d{2}-\d{2}$/.test(b.from||'')||!/^\d{4}-\d{2}-\d{2}$/.test(b.to||''))fail('Período inválido.');
   const from=new Date(b.from+'T00:00:00-03:00'),to=new Date(b.to+'T00:00:00-03:00');if(!Number.isFinite(+from)||!Number.isFinite(+to)||to<=from||to-from>93*86400000)fail('Período inválido.');
   let q=admin.from('recording_sessions').select('*,clients(name)').eq('organization_id',orgId).lt('starts_at',to.toISOString()).gte('ends_at',from.toISOString()).order('starts_at');if(client)q=q.eq('client_id',client.id);if(!agency)q=q.eq('shared',true);
-  let posts=admin.from('demands').select('id,title,client_id,publish_date,status,clients(name)').eq('organization_id',orgId).not('publish_date','is',null).gte('publish_date',b.from).lt('publish_date',b.to);if(client)posts=posts.eq('client_id',client.id);if(!agency)posts=posts.in('status',['with_client','approved','awaiting_scheduling','scheduled','posted','delivered']);
+  let posts=admin.from('demands').select('id,title,client_id,publish_date,status,clients(name)').eq('organization_id',orgId).is('archived_at',null).not('publish_date','is',null).gte('publish_date',b.from).lt('publish_date',b.to);if(client)posts=posts.eq('client_id',client.id);if(!agency)posts=posts.in('status',['with_client','approved','awaiting_scheduling','scheduled','posted','delivered']);
   const [events,p,team,clients]=await Promise.all([q,posts,agency?admin.from('agency_team_members').select('*').eq('organization_id',orgId).eq('is_active',true):Promise.resolve({data:[]}),agency?db.from('clients').select('id,name').eq('organization_id',orgId).order('name'):Promise.resolve({data:[client]})]);
   return Response.json({events:checked(events),posts:checked(p),team:checked(team),clients:checked(clients),agency},{headers});
  }
