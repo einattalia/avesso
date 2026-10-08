@@ -20,9 +20,14 @@ export async function POST(request){try{
  const {client,orgId,agency}=await access(db,user,b.clientId,b.organizationId);const admin=adminDb();
  const staff=()=>{if(!agency)fail('Ação disponível para a equipe.',403)};
  if(b.action==='contents'){
-  let q=admin.from('demands').select('id,client_id,organization_id,title,type,status,due_date,publish_date,created_at,reference_id,'+(agency?'briefing,':'')+'clients(name),demand_versions(id,demand_id,version_number,status,file_name,mime_type,file_size,caption,created_at)').eq('organization_id',orgId).order('created_at',{ascending:false});
+  let q=admin.from('demands').select('id,client_id,organization_id,project_id,title,type,status,due_date,publish_date,approved_at,created_at,reference_id,'+(agency?'briefing,notes,responsible_name,':'')+'clients(name),demand_versions(id,demand_id,version_number,status,file_name,mime_type,file_size,caption,created_at)').eq('organization_id',orgId).order('created_at',{ascending:false});
   if(client)q=q.eq('client_id',client.id);
-  const rows=checked(await q);return Response.json({items:rows.map(d=>({...d,demand_versions:(d.demand_versions||[]).filter(v=>agency||['sent_for_review','approved','changes_requested','delivered'].includes(v.status))})).filter(d=>agency||d.demand_versions.length),agency},{headers});
+  const rows=checked(await q);
+  let projectsQuery=admin.from('production_projects').select('id,client_id,title,description').eq('organization_id',orgId).is('archived_at',null);
+  if(client)projectsQuery=projectsQuery.eq('client_id',client.id);
+  const projects=checked(await projectsQuery);
+  const byId=new Map(projects.map(p=>[p.id,p]));
+  return Response.json({items:rows.map(d=>({...d,project:byId.get(d.project_id)||null,demand_versions:(d.demand_versions||[]).filter(v=>agency||['sent_for_review','approved','changes_requested','delivered'].includes(v.status))})).filter(d=>agency||d.demand_versions.length),projects,agency},{headers});
  }
  if(b.action==='scheduleContent'){
   staff();const {d}=await demandAccess(db,user,b.demandId,true);if(d.organization_id!==orgId)fail('Sem acesso.',403);

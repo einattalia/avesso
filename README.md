@@ -2,6 +2,8 @@
 
 Leia **[LEIA-PRIMEIRO-UX.md](LEIA-PRIMEIRO-UX.md)** para recursos, testes, migração pendente e publicação.
 
+Produção agora organiza artes em projetos. Antes de publicar esta atualização, execute `database/production-projects-setup.sql` no SQL Editor do Supabase e siga as instruções atualizadas em [INSTRUCOES-BRIEFING-WHATSAPP.md](INSTRUCOES-BRIEFING-WHATSAPP.md).
+
 # AVESSO — atualização 6
 
 Briefing separado de Contrato, anexos privados, Criativos, responsáveis e fluxo de produção com aprovação pelo cliente. Integração preparada para a API oficial do WhatsApp da Meta.

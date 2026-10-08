@@ -31,6 +31,8 @@ await db.exec(`
 `);
 const sql=await readFile(new URL('../../database/workspace-ux-setup.sql',import.meta.url),'utf8');
 await db.exec(sql);console.log('PASS SQL migration compiles on PostgreSQL engine');
+const productionSql=await readFile(new URL('../../database/production-projects-setup.sql',import.meta.url),'utf8');
+await db.exec(productionSql);console.log('PASS production project schema and approval-date trigger compile');
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const [org,actor,client,member,otherMember,linkedUser]=[1,2,3,4,5,6].map(id);
 await db.query('insert into auth.users values ($1),($2)',[actor,linkedUser]);
@@ -54,6 +56,9 @@ console.log('PASS actual SQL conflict, independent teams, adjacent slots, buffer
 const ref=(await db.query("insert into public.client_materials(client_id,section,title,body,author_id) values ($1,'references','Ideia','Só texto',$2) returning id",[client,actor])).rows[0].id;
 const convert=()=>db.query('select public.avesso_reference_to_content($1,$2)',[actor,ref]);
 const demand=(await convert()).rows[0].avesso_reference_to_content;
+const project=(await db.query("insert into public.production_projects(organization_id,client_id,title,created_by) values ($1,$2,'Campanha de teste',$3) returning id",[org,client,actor])).rows[0].id;
+await db.query('update public.demands set project_id=$1 where id=$2',[project,demand]);
+assert.equal((await db.query('select project_id from public.demands where id=$1',[demand])).rows[0].project_id,project);
 assert.equal((await convert()).rows[0].avesso_reference_to_content,demand);
 assert.equal((await db.query('select count(*)::int as n from public.client_material_history')).rows[0].n,1);
 await db.query("update public.demands set status='with_client' where id=$1",[demand]);
@@ -64,6 +69,8 @@ await assert.rejects(review(actor,'Ajuste'),/Permission denied/);
 assert.equal((await db.query('select status from public.demand_versions where id=$1',[version])).rows[0].status,'sent_for_review');
 await review(linkedUser,'Trocar a foto');
 assert.equal((await db.query('select body from public.client_notes')).rows[0].body,'Trocar a foto');
+await db.query("update public.demands set status='approved' where id=$1",[demand]);
+assert.ok((await db.query('select approved_at from public.demands where id=$1',[demand])).rows[0].approved_at);
 await assert.rejects(review(linkedUser,'Outra decisão'),/não está mais/);
 console.log('PASS text history, idempotent reference conversion and atomic review with mandatory note');
 const perms=await db.query("select tablename from pg_tables where schemaname='public' and tablename in ('client_materials','client_notes','client_assets','client_material_history') and rowsecurity");assert.equal(perms.rows.length,4);

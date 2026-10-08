@@ -2,7 +2,7 @@
 
 ## Publicar
 
-1. No SQL Editor do Supabase, execute `database/briefing-production-setup.sql`. Ele exige as estruturas de `database/r2-setup.sql` e `database/contracts-team-setup.sql`, fornecidas anteriormente. Não execute novamente os scripts antigos indiscriminadamente.
+1. No SQL Editor do Supabase, execute `database/production-projects-setup.sql` depois da estrutura de produção já instalada (`database/briefing-production-setup.sql`). Esse complemento cria os projetos, relaciona artes e grava automaticamente a data quando o cliente aprova. Não execute novamente os scripts antigos indiscriminadamente.
 2. Extraia o ZIP, substitua os arquivos na raiz do repositório conectado à Vercel e faça commit no ramo de produção. Inclua todos os novos componentes e rotas. Republicar um commit antigo não instala esta atualização.
 3. Preserve as variáveis Supabase e R2. Para o bucket da sua configuração mais recente, use `R2_BUCKET_NAME=avesso-producoes`. O nome precisa coincidir exatamente com o bucket autorizado pelo token. Não copie valores de exemplo sobre credenciais reais.
 4. Mantenha o bucket privado. Configure CORS conforme `config/r2-cors.json` para `https://avesso-seven.vercel.app`.
@@ -25,6 +25,8 @@ Os anexos novos ficam privados no R2. O navegador envia as partes diretamente, c
 **Em produção → Aguardando aprovação → Aprovado → Aguardando agendamento → Agendado → Postado**
 
 O mesmo fluxo atende criativos e vídeos. O upload registra a produção. Enviar para aprovação publica a versão mais recente, muda o estado para Aguardando aprovação e prepara o aviso. O cliente aprova ou solicita alterações no portal. Aprovar muda para Aprovado; solicitar alterações devolve o material à produção. A agência registra as etapas seguintes de agendamento e postagem, com histórico na tela.
+
+Na aba **Produção**, crie um projeto por campanha ou frente de trabalho. Dentro dele, crie um card separado para cada arte, com formato, briefing/texto, observações internas, responsável e prazo. Abra o card para anexar fotos ou PDF, publicar uma versão para aprovação e acompanhar a conversa. A aprovação continua sendo feita pelo cliente no portal e sua data aparece automaticamente no card. Depois da aprovação, o Design define a previsão de publicação e organiza o calendário. A tela também destaca a próxima ação esperada. Artes antigas podem ser movidas de **Sem projeto** para um projeto do mesmo cliente. Projetos podem ser editados ou excluídos; ao excluir um projeto, suas artes e arquivos permanecem disponíveis em **Sem projeto**.
 
 Versões antigas não podem aprovar o material atual. Enviar novamente a mesma versão não cria outro aviso. O link abre o portal, exige login e destaca o material. Existe também um botão para copiar o link. As etapas de agendamento e postagem registram o trabalho no AVESSO; a integração implementada envia avisos de aprovação pelo WhatsApp.
 
