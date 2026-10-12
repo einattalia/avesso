@@ -17,6 +17,13 @@ function Preview({supabase,v,compact=false}){
  return <div className={'uxPreview '+(compact?'compact':'')}>{url?(v.mime_type?.startsWith('image/')?<img src={url} alt={v.file_name}/>:v.mime_type?.startsWith('video/')?<video src={url} controls={!compact} preload="metadata"/>:compact?<span>{v.file_name}</span>:<a href={url} target="_blank" rel="noopener noreferrer">Abrir {v.file_name}</a>):<span>{error||'Carregando prévia…'}</span>}</div>;
 }
 
+function ApprovalLink({supabase,demandId}){
+ const [url,setUrl]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(true);
+ async function load(){setLoading(true);setError('');try{const result=await fileApi(supabase,{action:'approvalLink',demandId},'/api/production');setUrl(result.url||'')}catch(e){setUrl('');setError(e.message||'Não foi possível carregar o link.')}finally{setLoading(false)}}
+ useEffect(()=>{load()},[demandId]);
+ return <section className="approvalShare approvalShareCard"><div><small>LINK PARA ENVIAR AO CLIENTE</small></div>{loading?<p role="status">Carregando link…</p>:url?<div className="approvalShareControls"><input aria-label="Link público de aprovação" readOnly value={url}/><a className="secondary" href={url} target="_blank" rel="noopener noreferrer">Abrir</a><button type="button" className="secondary" onClick={async()=>{try{await navigator.clipboard.writeText(url)}catch{setError('Não foi possível copiar automaticamente. Selecione e copie o link no campo.')}}}>Copiar link</button></div>:<div><p className="approvalLinkError" role="alert">{error||'O link não está disponível.'}</p><button type="button" className="secondary" onClick={load}>Tentar novamente</button></div>}</section>;
+}
+
 function ArtworkCard({d,v,supabase,agency,clientName,onOpen,onUploaded,onEdit,onMove,onDelete}){
  const [uploading,setUploading]=useState(false),[progress,setProgress]=useState(0),[message,setMessage]=useState('');
  const controller=useRef(null);
@@ -30,6 +37,7 @@ function ArtworkCard({d,v,supabase,agency,clientName,onOpen,onUploaded,onEdit,on
  }
  return <article className="productionArtCard">
   <button className="uxContentCard" onClick={onOpen}><Preview supabase={supabase} v={v} compact/><div className="uxCardBody"><small>{d.type} · {d.clients?.name||clientName}</small><h3>{d.title}</h3><span className={'uxStatus '+d.status}>{label(d.status)}</span>{d.due_date&&<small>Prazo de produção: {d.due_date.split('-').reverse().join('/')}</small>}<p className="productionNext"><b>Próxima ação:</b> {d.status==='with_client'?(agency?'Cliente precisa aprovar':'Sua aprovação está pendente'):d.status==='approved'&&!d.publish_date?'Design precisa definir a publicação':d.status==='approved'?'Cliente aprovou · Design organiza a publicação':d.status==='internal_review'?'Revisão da equipe':d.status==='adjustments'?'Design precisa ajustar a arte':['scheduled','awaiting_scheduling'].includes(d.status)?'Design organiza a publicação':d.status==='posted'?'Publicado':'Design precisa produzir'}</p><footer>{d.publish_date?`Publicação: ${d.publish_date.split('-').reverse().join('/')}`:'Publicação a definir'}<span>{v?`V${v.version_number}`:'Sem anexo'}</span></footer>{d.approved_at&&<small className="approvedDate">Aprovado em {new Date(d.approved_at).toLocaleDateString('pt-BR')}</small>}</div></button>
+  {agency&&d.status==='with_client'&&<ApprovalLink supabase={supabase} demandId={d.id}/>}
   {agency&&<div className="artCardActions"><label className="secondary uploadBtn productionAttach">{uploading?`Enviando ${progress}%`:v?'Enviar nova versão':'Anexar arte PNG/PDF ou vídeo'}<input type="file" accept=".pdf,.jpg,.jpeg,.png,.mp4,.mov,.webm,application/pdf,image/jpeg,image/png,video/mp4,video/quicktime,video/webm" disabled={uploading} onChange={attach}/></label>{d.project_id&&<button className="secondary artEdit" onClick={onEdit}>Editar card</button>}{onDelete&&<button className="secondary dangerText" disabled={uploading} onClick={onDelete}>Excluir card</button>}{!d.project_id&&onMove&&<button className="artEdit" onClick={onMove}>Mover para projeto</button>}{uploading&&<button className="artEdit" onClick={()=>controller.current?.abort()}>Pausar</button>}</div>}
   {message&&<small className={uploading?'':'artUploadMessage'} role="status">{message}</small>}
  </article>;

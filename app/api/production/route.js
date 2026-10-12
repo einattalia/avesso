@@ -29,12 +29,12 @@ export async function POST(request) {
       const {data:version,error:versionError}=await admin.from('demand_versions').select('id,status').eq('demand_id',demand.id).order('version_number',{ascending:false}).limit(1).maybeSingle();
       if(versionError||!version||version.status!=='sent_for_review')fail('Esta versão não está aguardando aprovação.',409);
       const {data:current,error:linkError}=await admin.from('approval_link_tokens').select('token_encrypted,expires_at').eq('demand_id',demand.id).eq('demand_version_id',version.id).is('revoked_at',null).is('used_at',null).order('created_at',{ascending:false}).limit(1).maybeSingle();
-      if(linkError)throw linkError;
+      if(linkError)fail('Não foi possível carregar o link. Execute novamente database/client-approval-portal.sql no Supabase e publique a versão mais recente.',503);
       const base=process.env.APP_URL||new URL(request.url).origin;
       if(current?.token_encrypted&&Date.parse(current.expires_at)>Date.now()) {
         try{return Response.json({status:demand.status,url:approvalUrl(base,decryptApprovalToken(current.token_encrypted,process.env.SUPABASE_SERVICE_ROLE_KEY))},{headers});}catch{}
       }
-      const url=await issueApprovalLink(admin,demand.id,version.id,base);
+      let url;try{url=await issueApprovalLink(admin,demand.id,version.id,base)}catch{fail('Não foi possível criar o link. Execute novamente database/client-approval-portal.sql no Supabase e publique a versão mais recente.',503)}
       return Response.json({status:demand.status,url},{headers});
     }
     if(b.action==='history') {
