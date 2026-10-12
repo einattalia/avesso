@@ -1,5 +1,5 @@
 -- Execute depois de briefing-production-setup.sql e production-projects-setup.sql.
--- Os tokens brutos existem apenas no link enviado ao cliente; o banco guarda SHA-256.
+-- O banco guarda o SHA-256 para validar e uma cópia criptografada, acessível apenas ao servidor, para reexibir o link à agência.
 begin;
 
 create table if not exists public.approval_link_tokens (
@@ -8,11 +8,13 @@ create table if not exists public.approval_link_tokens (
   client_id uuid not null references public.clients(id) on delete cascade,
   demand_id uuid not null references public.demands(id) on delete cascade,
   demand_version_id uuid not null references public.demand_versions(id) on delete cascade,
+  token_encrypted text,
   expires_at timestamptz not null,
   created_at timestamptz not null default now(),
   revoked_at timestamptz,
   used_at timestamptz
 );
+alter table public.approval_link_tokens add column if not exists token_encrypted text;
 
 alter table public.approval_link_tokens enable row level security;
 revoke all on public.approval_link_tokens from public,anon,authenticated;
@@ -44,6 +46,31 @@ end;
 $$;
 revoke all on function public.avesso_issue_approval_link(uuid,uuid,text,timestamptz) from public,anon,authenticated;
 grant execute on function public.avesso_issue_approval_link(uuid,uuid,text,timestamptz) to service_role;
+
+-- Re-issue links while retaining an encrypted copy so authorized agency users can
+-- copy the same link after reopening a card. Encryption key stays server-side.
+create or replace function public.avesso_issue_approval_link_v2(target_demand uuid,target_version uuid,token_digest text,encrypted_value text,link_expires_at timestamptz)
+returns void language plpgsql security invoker set search_path='' as $$
+declare d public.demands; v public.demand_versions;
+begin
+  if token_digest !~ '^[a-f0-9]{64}$' or length(encrypted_value)>512 or length(encrypted_value)<32
+    or link_expires_at<=now() or link_expires_at>now()+interval '31 days' then
+    raise exception 'Invalid approval link';
+  end if;
+  select * into d from public.demands where id=target_demand for update;
+  select * into v from public.demand_versions where id=target_version and demand_id=target_demand for update;
+  if d.id is null or v.id is null or d.archived_at is not null or d.client_id is null or d.status<>'with_client' or v.status<>'sent_for_review'
+    or v.id is distinct from (select id from public.demand_versions where demand_id=d.id order by version_number desc limit 1) then
+    raise exception 'Approval unavailable';
+  end if;
+  update public.approval_link_tokens set revoked_at=now()
+    where demand_id=d.id and revoked_at is null and used_at is null;
+  insert into public.approval_link_tokens(token_hash,client_id,demand_id,demand_version_id,token_encrypted,expires_at)
+    values(token_digest,d.client_id,d.id,v.id,encrypted_value,link_expires_at);
+end;
+$$;
+revoke all on function public.avesso_issue_approval_link_v2(uuid,uuid,text,text,timestamptz) from public,anon,authenticated;
+grant execute on function public.avesso_issue_approval_link_v2(uuid,uuid,text,text,timestamptz) to service_role;
 
 create or replace function public.avesso_approve_public_link(token_digest text)
 returns text language plpgsql security invoker set search_path='' as $$

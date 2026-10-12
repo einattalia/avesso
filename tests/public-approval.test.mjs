@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createHash,randomBytes} from 'node:crypto';
+import {createCipheriv,createDecipheriv,createHash,randomBytes} from 'node:crypto';
 import vm from 'node:vm';
 
 async function fixture({foreignClient=false,expired=false,revoked=false,versionStatus='sent_for_review'}={}){
@@ -19,7 +19,7 @@ async function fixture({foreignClient=false,expired=false,revoked=false,versionS
   const module=new vm.SourceTextModule(await readFile(new URL('../app/api/public-approval/[token]/route.js',import.meta.url),'utf8'),{context});
   async function synthetic(exports){return new vm.SyntheticModule(Object.keys(exports),function(){for(const [key,value] of Object.entries(exports))this.setExport(key,value)},{context});}
   await module.link(async name=>{
-    if(name==='node:crypto')return synthetic({createHash,randomBytes});
+    if(name==='node:crypto')return synthetic({createCipheriv,createDecipheriv,createHash,randomBytes});
     if(name.endsWith('r2-server'))return synthetic({adminDb:()=>db,config:()=>{throw new Error('R2 should not be used in this fixture')}});
     if(name.endsWith('upload-policy.mjs'))return synthetic({fail(message,status=400){const e=new Error(message);e.status=status;throw e}});
     if(name.endsWith('approval-token.mjs'))return new vm.SourceTextModule(await readFile(new URL('../lib/approval-token.mjs',import.meta.url),'utf8'),{context});
