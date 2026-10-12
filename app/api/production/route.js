@@ -2,6 +2,7 @@ import {authenticate,adminDb,demandAccess} from '../../../lib/r2-server';
 import {fail} from '../../../lib/upload-policy.mjs';
 import {dispatchApproval} from '../../../lib/whatsapp-server';
 import {approvalUrl} from '../../../lib/production-policy.mjs';
+import {createApprovalToken,hashApprovalToken} from '../../../lib/approval-token.mjs';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export const maxDuration=60;
@@ -32,9 +33,12 @@ export async function POST(request) {
     if(error){console.error('AVESSO production transaction failed',{code:error.code});fail('Não foi possível atualizar a atividade. Confira se esta versão ainda está disponível e se o SQL de briefing e produção foi executado.',409)}
     let notice=null,url=null;
     if(b.action==='send') {
-      const base=process.env.APP_URL;
-      if(base){try{url=approvalUrl(base,b.demandId)}catch{}}
-      try{notice=await dispatchApproval(admin,b.demandId)}catch{notice={state:'failed',message:'Aprovação publicada; não foi possível enviar o aviso pelo WhatsApp.'}}
+      const base=process.env.APP_URL||new URL(request.url).origin;
+      const token=createApprovalToken();
+      if(base){try{url=approvalUrl(base,token)}catch{}}
+      const {error:issueError}=await admin.rpc('avesso_issue_approval_link',{target_demand:b.demandId,target_version:b.versionId,token_digest:hashApprovalToken(token),link_expires_at:new Date(Date.now()+14*86400000).toISOString()});
+      if(issueError){console.error('AVESSO approval link issue failed',{code:issueError.code});fail('A aprovação foi enviada, mas o link seguro não pôde ser criado. Verifique se o SQL do portal foi instalado.',503)}
+      try{notice=await dispatchApproval(admin,b.demandId,token)}catch{notice={state:'failed',message:'Aprovação publicada; não foi possível enviar o aviso pelo WhatsApp.'}}
     }
     return Response.json({status:data,notice,url},{headers});
   }catch(e){if(!e.status)console.error('AVESSO production operation failed',{code:e.code||e.name});return Response.json({error:e.status?e.message:'Não foi possível concluir esta ação.'},{status:e.status||500,headers})}

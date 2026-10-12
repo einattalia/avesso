@@ -1,6 +1,6 @@
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
 // Load the actual route and authorization code, replacing only external services.
 export async function fixture({routeName="files",member=true,client=false,token=true,parts,object,completed=false,legacy=false,rpcError=false,r2Error=null,r2ErrorAt=null}={}) {
   const calls=[];
@@ -33,11 +33,11 @@ export async function fixture({routeName="files",member=true,client=false,token=
   async function load(name) {
     if(cached.has(name))return cached.get(name);
     if(name==='server-only')return synthetic(name,{});
-    if(name==='node:crypto')return synthetic(name,{randomUUID});
+    if(name==='node:crypto')return synthetic(name,{createHash,randomBytes,randomUUID});
     if(name==='@supabase/supabase-js')return synthetic(name,{createClient:()=>db});
     if(name==='@aws-sdk/client-s3')return synthetic(name,aws);
     if(name==='@aws-sdk/s3-request-presigner')return synthetic(name,{getSignedUrl:async(_client,command)=>{calls.push(command);return `https://r2.test/${command.input.Key}`;}});
-    const path=name.includes('workspace-policy')?'lib/workspace-policy.mjs':name==='workspace-route'?'app/api/workspace/route.js':name.includes('upload-policy')?'lib/upload-policy.mjs':name.includes('contract-items')?'lib/contract-items.mjs':name.includes('r2-config')?'lib/r2-config.mjs':name.includes('production-policy')?'lib/production-policy.mjs':name.includes('whatsapp-server')?'lib/whatsapp-server.js':name.includes('r2-server')?'lib/r2-server.js':name==='production-route'?'app/api/production/route.js':name==='projects-route'?'app/api/projects/route.js':name==='team-route'?'app/api/team/route.js':'app/api/files/route.js';
+    const path=name.includes('workspace-policy')?'lib/workspace-policy.mjs':name==='workspace-route'?'app/api/workspace/route.js':name.includes('upload-policy')?'lib/upload-policy.mjs':name.includes('contract-items')?'lib/contract-items.mjs':name.includes('approval-token')?'lib/approval-token.mjs':name.includes('r2-config')?'lib/r2-config.mjs':name.includes('production-policy')?'lib/production-policy.mjs':name.includes('whatsapp-server')?'lib/whatsapp-server.js':name.includes('r2-server')?'lib/r2-server.js':name==='production-route'?'app/api/production/route.js':name==='projects-route'?'app/api/projects/route.js':name==='team-route'?'app/api/team/route.js':'app/api/files/route.js';
     const m=new vm.SourceTextModule(await readFile(new URL('../../'+path,import.meta.url),'utf8'),{context,identifier:name});cached.set(name,m);await m.link(load);return m;
   }
   const route=await load(routeName==='workspace'?'workspace-route':routeName==='production'?'production-route':routeName==='projects'?'projects-route':routeName==='team'?'team-route':'route');await route.evaluate();
@@ -45,5 +45,4 @@ export async function fixture({routeName="files",member=true,client=false,token=
     const r=await route.namespace.POST(new Request('https://avesso.test/api/files',{method:'POST',headers:{authorization:'Bearer valid'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()};
   }};
 }
-
 
