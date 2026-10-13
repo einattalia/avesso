@@ -1,10 +1,9 @@
 import {randomUUID} from 'node:crypto';
-import {AbortMultipartUploadCommand,CompleteMultipartUploadCommand,CreateMultipartUploadCommand,DeleteObjectCommand,GetObjectCommand,HeadObjectCommand,ListPartsCommand,UploadPartCommand} from '@aws-sdk/client-s3';
+import {AbortMultipartUploadCommand,CompleteMultipartUploadCommand,CreateMultipartUploadCommand,GetObjectCommand,HeadObjectCommand,ListPartsCommand,UploadPartCommand} from '@aws-sdk/client-s3';
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 import {adminDb,authenticate,config,demandAccess,contractAccess,briefingAccess} from '../../../lib/r2-server';
 import {PART_SIZE,CONTRACT_TYPES,canReadClientVersion,fail,validateFile,validateParts} from '../../../lib/upload-policy.mjs';
 import {fileErrorDetails} from '../../../lib/r2-config.mjs';
-import {canReplaceArtwork} from '../../../lib/production-policy.mjs';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const headers = {'Cache-Control':'private, no-store'};
@@ -28,7 +27,7 @@ export async function POST(request) {
     const raw=await request.text(); if(raw.length>262144) fail('Solicitação muito grande.',413);
     let b; try {b=JSON.parse(raw);} catch {fail('Solicitação inválida.');}
     if (!b || typeof b!=='object') fail('Solicitação inválida.');
-    const allowed=['list','saveText','read','removeArtwork','init','resume','part','abort','complete'];
+    const allowed=['list','saveText','read','init','resume','part','abort','complete'];
     operation=allowed.includes(b.action)?b.action:'invalid';
     if(b.scope && !['demand','contract','briefing'].includes(b.scope)) fail('Área de arquivo inválida.');
     const isBriefing=b.scope==='briefing';
@@ -70,7 +69,7 @@ export async function POST(request) {
       return Response.json({url},{headers});
     }
     if (b.action==='read') {
-      const {data:v,error}=await db.from('demand_versions').select('*').eq('id',b.versionId).is('removed_at',null).maybeSingle();
+      const {data:v,error}=await db.from('demand_versions').select('*').eq('id',b.versionId).maybeSingle();
       if(error || !v) fail('Arquivo indisponível.',404);
       const {agency}=await demandAccess(db,user,v.demand_id);
       if (!agency && !canReadClientVersion(v.status)) fail('Esta versão ainda não foi compartilhada.',403);
@@ -86,37 +85,10 @@ export async function POST(request) {
       const url=await getSignedUrl(s3,new GetObjectCommand({Bucket:bucket,Key:v.storage_path,ResponseCacheControl:'private, no-store'}),{expiresIn:3600});
       return Response.json({url},{headers});
     }
-    if(b.action==='removeArtwork') {
-      if(!b.demandId||!b.versionId)fail('Arte inválida.');
-      const {d,agency}=await demandAccess(db,user,b.demandId,true);
-      if(!agency)fail('Somente a equipe pode remover uma arte.',403);
-      const admin=adminDb();
-      const {data:version,error:versionError}=await admin.from('demand_versions').select('id,demand_id,status,storage_provider,storage_path').eq('id',b.versionId).eq('demand_id',d.id).is('removed_at',null).maybeSingle();
-      if(versionError||!version)fail('Arte indisponível.',404);
-      let s3,bucket;
-      if(version.storage_provider==='r2') {
-        const trusted=await admin.from('r2_upload_sessions').select('id,bucket').eq('object_key',version.storage_path).eq('demand_id',d.id).eq('state','completed').maybeSingle();
-        if(trusted.error||!trusted.data)fail('Não foi possível confirmar o arquivo no armazenamento.',409);
-        ({s3,bucket}=config());
-        if(trusted.data.bucket!==bucket)fail('O bucket deste arquivo foi alterado.',409);
-      } else if(version.storage_provider!=='supabase') fail('Tipo de armazenamento não suportado.',409);
-      const {data:removed,error:removeError}=await admin.rpc('avesso_remove_draft_artwork',{target_demand:d.id,target_version:version.id,actor_id:user.id});
-      if(removeError||!removed?.storage_path)fail('A arte só pode ser removida enquanto estiver em rascunho e antes do envio para aprovação.',409);
-      let storageDeleted=true;
-      try {
-        if(removed.storage_provider==='r2') await s3.send(new DeleteObjectCommand({Bucket:bucket,Key:removed.storage_path}));
-        else {const {error}=await admin.storage.from('demand-files').remove([removed.storage_path]);if(error)throw error;}
-      } catch(error) {
-        storageDeleted=false;
-        console.error('AVESSO artwork storage cleanup failed',{code:error.code||error.name});
-      }
-      return Response.json({removed:true,storageDeleted},{headers});
-    }
     const {s3,bucket,maxBytes}=config(); const admin=adminDb();
     if (b.action==='init') {
       validateFile(b.file,isDocument?Math.min(maxBytes,100*1024*1024):maxBytes,isBriefing?new Set(['application/pdf','image/jpeg','image/png','image/webp']):isContract?CONTRACT_TYPES:undefined);
       const {d}=await access(db,user,isDocument?targetId:b.demandId,true);
-      if(!isDocument&&!canReplaceArtwork(d.status)) fail('A arte só pode ser substituída antes de ser enviada para aprovação.',409);
       const {count,error:countError}=await admin.from(sessionTable).select('id',{head:true,count:'exact'}).eq('user_id',user.id).eq('state','pending').gt('expires_at',new Date().toISOString());
       if(countError) throw countError;
       if(count>=10) fail('Há muitos envios pendentes. Retome ou cancele um deles.',429);
@@ -129,8 +101,7 @@ export async function POST(request) {
     }
     const {data:s,error}=await admin.from(sessionTable).select('*').eq('id',b.id).eq('user_id',user.id).maybeSingle();
     if(error || !s) fail('Envio indisponível.',404);
-    const {d}=await access(db,user,s[targetColumn],true);
-    if(!isDocument&&b.action!=='abort'&&!canReplaceArtwork(d.status)) fail('A arte só pode ser substituída antes de ser enviada para aprovação.',409);
+    await access(db,user,s[targetColumn],true);
     if(s.bucket!==bucket) fail('O bucket deste envio foi alterado.',409);
     if(s.state==='completed') return Response.json(isDocument?{completed:true,fileId:s.id}:{completed:true,versionNumber:s.version_number},{headers});
     if(s.state==='aborted' || Date.parse(s.expires_at)<=Date.now()) fail('Este envio expirou ou foi cancelado. Inicie novamente.',410);
