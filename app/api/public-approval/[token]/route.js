@@ -16,9 +16,9 @@ async function getApproval(token){
   if(error||!link||link.revoked_at||Date.parse(link.expires_at)<=Date.now())fail('Este link de aprovação é inválido ou expirou.',404);
   const [{data:demand,error:demandError},{data:version,error:versionError},{data:client,error:clientError},{data:latest,error:latestError}]=await Promise.all([
     admin.from('demands').select('id,client_id,title,status,archived_at').eq('id',link.demand_id).eq('client_id',link.client_id).maybeSingle(),
-    admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption').eq('id',link.demand_version_id).eq('demand_id',link.demand_id).maybeSingle(),
+    admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption,removed_at').eq('id',link.demand_version_id).eq('demand_id',link.demand_id).is('removed_at',null).maybeSingle(),
     admin.from('clients').select('id,name').eq('id',link.client_id).maybeSingle(),
-    admin.from('demand_versions').select('id').eq('demand_id',link.demand_id).order('version_number',{ascending:false}).limit(1).maybeSingle()
+    admin.from('demand_versions').select('id').eq('demand_id',link.demand_id).is('removed_at',null).order('version_number',{ascending:false}).limit(1).maybeSingle()
   ]);
   if(demandError||versionError||clientError||latestError||!demand||!version||!client||!latest||demand.archived_at)fail('Este material não está disponível para aprovação.',404);
   const alreadyApproved=link.used_at&&demand.status==='approved'&&version.status==='approved';
