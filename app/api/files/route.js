@@ -4,6 +4,7 @@ import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 import {adminDb,authenticate,config,demandAccess,contractAccess,briefingAccess} from '../../../lib/r2-server';
 import {PART_SIZE,CONTRACT_TYPES,canReadClientVersion,fail,validateFile,validateParts} from '../../../lib/upload-policy.mjs';
 import {fileErrorDetails} from '../../../lib/r2-config.mjs';
+import {canReplaceArtwork} from '../../../lib/production-policy.mjs';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 const headers = {'Cache-Control':'private, no-store'};
@@ -89,6 +90,7 @@ export async function POST(request) {
     if (b.action==='init') {
       validateFile(b.file,isDocument?Math.min(maxBytes,100*1024*1024):maxBytes,isBriefing?new Set(['application/pdf','image/jpeg','image/png','image/webp']):isContract?CONTRACT_TYPES:undefined);
       const {d}=await access(db,user,isDocument?targetId:b.demandId,true);
+      if(!isDocument&&!canReplaceArtwork(d.status)) fail('A arte só pode ser substituída antes de ser enviada para aprovação.',409);
       const {count,error:countError}=await admin.from(sessionTable).select('id',{head:true,count:'exact'}).eq('user_id',user.id).eq('state','pending').gt('expires_at',new Date().toISOString());
       if(countError) throw countError;
       if(count>=10) fail('Há muitos envios pendentes. Retome ou cancele um deles.',429);
@@ -101,7 +103,8 @@ export async function POST(request) {
     }
     const {data:s,error}=await admin.from(sessionTable).select('*').eq('id',b.id).eq('user_id',user.id).maybeSingle();
     if(error || !s) fail('Envio indisponível.',404);
-    await access(db,user,s[targetColumn],true);
+    const {d}=await access(db,user,s[targetColumn],true);
+    if(!isDocument&&b.action!=='abort'&&!canReplaceArtwork(d.status)) fail('A arte só pode ser substituída antes de ser enviada para aprovação.',409);
     if(s.bucket!==bucket) fail('O bucket deste envio foi alterado.',409);
     if(s.state==='completed') return Response.json(isDocument?{completed:true,fileId:s.id}:{completed:true,versionNumber:s.version_number},{headers});
     if(s.state==='aborted' || Date.parse(s.expires_at)<=Date.now()) fail('Este envio expirou ou foi cancelado. Inicie novamente.',410);
