@@ -81,3 +81,4 @@ export default function ContentBoard({supabase,client,ctx,renderDetail,onlyRevie
 }
 
 export function ScheduleContent({supabase,demand}){const [date,setDate]=useState(demand.publish_date||''),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);return <div className="uxSchedule"><label>Previsão de publicação<input type="date" value={date} onChange={e=>{setDate(e.target.value);setMessage('')}}/></label><button className="secondary" disabled={busy} onClick={async()=>{setBusy(true);try{await workspaceApi(supabase,{action:'scheduleContent',clientId:demand.client_id,demandId:demand.id,date});setMessage('Data atualizada nos calendários do cliente e da agência.')}catch(e){setError(e.message)}finally{setBusy(false)}}}>Salvar data</button><Notice error={error} message={message}/></div>}
+
