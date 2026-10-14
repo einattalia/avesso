@@ -24,6 +24,7 @@ create index if not exists approval_link_tokens_active on public.approval_link_t
 -- Link approvals have no Supabase user. Preserve the event while making the actor explicit.
 alter table public.approval_events alter column user_id drop not null;
 alter table public.approval_events add column if not exists actor_name text;
+alter table public.approval_events add column if not exists note text;
 
 create or replace function public.avesso_issue_approval_link(target_demand uuid,target_version uuid,token_digest text,link_expires_at timestamptz)
 returns void language plpgsql security invoker set search_path='' as $$
@@ -100,6 +101,49 @@ begin
   update public.approval_link_tokens set used_at=now() where id=l.id;
   return 'approved';
 end;
+$$;
+revoke all on function public.avesso_approve_public_link(text) from public,anon,authenticated;
+grant execute on function public.avesso_approve_public_link(text) to service_role;
+
+-- Secure public review link supports both approval and an adjustment request.
+create or replace function public.avesso_review_public_link(token_digest text,decision text,note text default '')
+returns text language plpgsql security invoker set search_path='' as $$
+declare l public.approval_link_tokens; d public.demands; v public.demand_versions; outcome text; review_note text:=trim(coalesce(note,''));
+begin
+  if token_digest !~ '^[a-f0-9]{64}$' or decision not in ('approve','changes') then raise exception 'Approval link unavailable'; end if;
+  if decision='changes' and length(review_note)<3 then raise exception 'Descreva os ajustes necessários.'; end if;
+  if length(review_note)>20000 then raise exception 'Texto muito longo'; end if;
+  select * into l from public.approval_link_tokens where token_hash=token_digest;
+  if not found then raise exception 'Approval link unavailable'; end if;
+  select * into d from public.demands where id=l.demand_id and client_id=l.client_id for update;
+  select * into l from public.approval_link_tokens where token_hash=token_digest for update;
+  if not found or l.revoked_at is not null or l.expires_at<=now() then raise exception 'Approval link unavailable'; end if;
+  if l.used_at is not null then
+    if decision='approve' and d.id is not null and d.status='approved' then return 'approved'; end if;
+    if decision='changes' and d.id is not null and d.status='adjustments' then return 'changes_requested'; end if;
+    raise exception 'Approval link unavailable';
+  end if;
+  select * into v from public.demand_versions where id=l.demand_version_id and demand_id=l.demand_id for update;
+  if d.id is null or v.id is null or d.archived_at is not null or d.status<>'with_client' or v.status<>'sent_for_review'
+    or v.id is distinct from (select id from public.demand_versions where demand_id=d.id order by version_number desc limit 1) then
+    raise exception 'Esta versão não está mais aguardando aprovação.';
+  end if;
+  outcome:=case when decision='approve' then 'approved' else 'changes_requested' end;
+  update public.demand_versions set status=outcome where id=v.id;
+  insert into public.approval_events(demand_version_id,user_id,event,actor_name,note)
+    values(v.id,null,outcome,'Cliente (link seguro)',case when decision='changes' then review_note else null end);
+  update public.demands set status=case when decision='approve' then 'approved' else 'adjustments' end where id=d.id;
+  update public.approval_notifications set state='cancelled' where demand_id=d.id and state in ('pending','failed');
+  update public.approval_link_tokens set used_at=now() where id=l.id;
+  return outcome;
+end;
+$$;
+revoke all on function public.avesso_review_public_link(text,text,text) from public,anon,authenticated;
+grant execute on function public.avesso_review_public_link(text,text,text) to service_role;
+
+create or replace function public.avesso_approve_public_link(token_digest text)
+returns text language sql security invoker set search_path='' as $$
+  select public.avesso_review_public_link(token_digest,'approve','');
 $$;
 revoke all on function public.avesso_approve_public_link(text) from public,anon,authenticated;
 grant execute on function public.avesso_approve_public_link(text) to service_role;
