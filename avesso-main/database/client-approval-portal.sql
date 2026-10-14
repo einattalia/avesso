@@ -114,7 +114,6 @@ begin
   perform 1 from public.demand_versions where demand_id=d.id and id=any(target_versions) and status in ('draft','changes_requested') for update;
   select count(*) into selected_count from public.demand_versions where demand_id=d.id and id=any(target_versions) and status in ('draft','changes_requested');
   if selected_count<>cardinality(target_versions) then raise exception 'Options changed'; end if;
-  if exists(select 1 from public.demand_versions where demand_id=d.id and status in ('draft','changes_requested') and not(id=any(target_versions))) then raise exception 'Select all draft options'; end if;
   select id into representative from public.demand_versions where demand_id=d.id and id=any(target_versions) order by version_number desc limit 1;
   update public.approval_option_sets set state='superseded',resolved_at=now() where demand_id=d.id and state in ('pending','selected','changes_requested');
   update public.approval_link_tokens set revoked_at=now() where demand_id=d.id and revoked_at is null and used_at is null;
