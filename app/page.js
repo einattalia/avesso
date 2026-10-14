@@ -36,7 +36,38 @@ function Login({error,onError}){const [email,setEmail]=useState(''),[password,se
 
 function AgencyApp({ctx}){const [active,setActive]=useState('Visão geral'),[mobile,setMobile]=useState(false),[selectedClient,setSelectedClient]=useState(null),[clientTab,setClientTab]=useState('Visão geral');
  function nav(name){setSelectedClient(null);setActive(name)}
- return <main className="shell"><Sidebar nav={agencyNav} active={selectedClient?'Clientes':active} setActive={nav} mobile={mobile} setMobile={setMobile} org={ctx.organization?.name}/><section className="content"><Top ctx={ctx} mobile={mobile} setMobile={setMobile} eyebrow={selectedClient?'CLIENTE 360°':active.toUpperCase()} subtitle={selectedClient?`Tudo de ${selectedClient.name} em um só lugar.`:'A operação por trás da criação.'}/>{selectedClient?<Client360 client={selectedClient} ctx={ctx} tab={clientTab} setTab={setClientTab} onBack={()=>setSelectedClient(null)} onClientUpdated={setSelectedClient}/>:<AgencyModule active={active} ctx={ctx} onClient={c=>{setSelectedClient(c);setClientTab('Visão geral')}}/>}</section></main>}
+ return <main className="shell"><ApprovalPopupMonitor ctx={ctx} onOpenProduction={()=>nav('Produção')}/><Sidebar nav={agencyNav} active={selectedClient?'Clientes':active} setActive={nav} mobile={mobile} setMobile={setMobile} org={ctx.organization?.name}/><section className="content"><Top ctx={ctx} mobile={mobile} setMobile={setMobile} eyebrow={selectedClient?'CLIENTE 360°':active.toUpperCase()} subtitle={selectedClient?`Tudo de ${selectedClient.name} em um só lugar.`:'A operação por trás da criação.'}/>{selectedClient?<Client360 client={selectedClient} ctx={ctx} tab={clientTab} setTab={setClientTab} onBack={()=>setSelectedClient(null)} onClientUpdated={setSelectedClient}/>:<AgencyModule active={active} ctx={ctx} onClient={c=>{setSelectedClient(c);setClientTab('Visão geral')}}/>}</section></main>}
+function ApprovalPopupMonitor({ctx,onOpenProduction}){
+ const [notices,setNotices]=useState([]);
+ useEffect(()=>{
+  let active=true,busy=false,cursor=Date.now()-1000;
+  const seen=new Set();
+  async function poll(){
+   if(!active||busy||!ctx.organization?.id)return;busy=true;
+   const pollStartedAt=Date.now();
+   try{
+    const {data:{session}}=await supabase.auth.getSession();
+    if(!session?.access_token)return;
+    const url=new URL('/api/agency-notifications',window.location.origin);
+    url.searchParams.set('organizationId',ctx.organization.id);
+    url.searchParams.set('since',new Date(Math.max(0,cursor-1000)).toISOString());
+    const response=await fetch(url,{headers:{Authorization:`Bearer ${session.access_token}`},cache:'no-store'});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||'Falha ao consultar notificações.');
+    const fresh=(result.events||[]).filter(event=>{if(seen.has(event.id))return false;seen.add(event.id);return true;});
+    const times=(result.events||[]).map(event=>Date.parse(event.createdAt)).filter(Number.isFinite);
+    cursor=Math.max(cursor,times.length?Math.max(...times):pollStartedAt);
+    if(seen.size>1000)seen.clear();
+    if(active&&fresh.length)setNotices(current=>[...current,...fresh.map(event=>({...event,key:`${event.id}-${Date.now()}`}))].slice(-5));
+   }catch(error){console.warn('Falha ao consultar aprovações recentes.',error)}finally{busy=false}
+  }
+  poll();const timer=setInterval(poll,8000);
+  return()=>{active=false;clearInterval(timer)};
+ },[ctx.organization?.id]);
+ useEffect(()=>{if(!notices.length)return;const timer=setTimeout(()=>setNotices(current=>current.slice(1)),10000);return()=>clearTimeout(timer)},[notices]);
+ if(!notices.length)return null;
+ const notice=notices[0],approved=notice.status==='approved';
+ return <div className="approvalToast" role="status" aria-live="polite"><div className={'approvalToastIcon '+(approved?'approved':'changes')}>{approved?<CircleCheckBig size={20}/>:<RefreshCw size={19}/>}</div><div className="approvalToastCopy"><strong>{approved?'Cliente aprovou a arte':'Cliente solicitou ajustes'}</strong><span>{notice.clientName} · {notice.title}</span><button type="button" onClick={()=>{setNotices([]);onOpenProduction()}}>Abrir produção</button></div><button className="approvalToastClose" type="button" aria-label="Fechar aviso" onClick={()=>setNotices(current=>current.slice(1))}><X size={17}/></button></div>;
+}
 function AgencyModule({active,ctx,onClient}){if(active==='Produção'||active==='Aprovações')return <ContentBoard supabase={supabase} ctx={ctx} onlyReview={active==='Aprovações'} renderDetail={(d,back)=><DemandDetail demand={d} onBack={back}/>}/>;if(active==='Equipe')return <TeamPage ctx={ctx} supabase={supabase}/>;if(active==='Clientes')return <ClientsPage ctx={ctx} onClient={onClient}/>;if(active==='Visão geral')return <Overview ctx={ctx}/>;if(active==='Calendário')return <UnifiedCalendar supabase={supabase} ctx={ctx}/>;if(active==='Financeiro')return <Finance ctx={ctx}/>;return <EmptyModule name={active}/>}
 function Overview({ctx}){const [m,setM]=useState({clients:'—',production:'—',approvals:'—'});useEffect(()=>{(async()=>{const org=ctx.organization.id;const [c,p,a]=await Promise.all([supabase.from('clients').select('id',{count:'exact',head:true}).eq('organization_id',org).eq('status','active'),supabase.from('demands').select('id',{count:'exact',head:true}).eq('organization_id',org).is('archived_at',null).in('status',['briefing','awaiting_material','in_production','internal_review','adjustments','approved','awaiting_scheduling','scheduled']),supabase.from('demands').select('id',{count:'exact',head:true}).eq('organization_id',org).is('archived_at',null).eq('status','with_client')]);setM({clients:c.count??0,production:p.count??0,approvals:a.count??0})})()},[ctx.organization.id]);return <><div className="metrics"><article className="metric"><small>CLIENTES ATIVOS</small><strong>{m.clients}</strong><span>carteira da agência</span></article><article className="metric"><small>EM PRODUÇÃO</small><strong>{m.production}</strong><span>demandas abertas</span></article><article className="metric"><small>APROVAÇÕES</small><strong>{m.approvals}</strong><span>aguardando cliente</span></article></div><UnifiedCalendar supabase={supabase} ctx={ctx}/></>}
 
