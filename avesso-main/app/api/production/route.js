@@ -26,15 +26,27 @@ export async function POST(request) {
       if(!agency)fail('Somente a agência pode compartilhar o link de aprovação.',403);
       const {data:demand,error:demandError}=await admin.from('demands').select('id,client_id,status,archived_at').eq('id',b.demandId).maybeSingle();
       if(demandError||!demand||demand.archived_at||demand.status!=='with_client')fail('Esta demanda não está aguardando aprovação.',409);
-      const {data:version,error:versionError}=await admin.from('demand_versions').select('id,status').eq('demand_id',demand.id).order('version_number',{ascending:false}).limit(1).maybeSingle();
-      if(versionError||!version||version.status!=='sent_for_review')fail('Esta versão não está aguardando aprovação.',409);
-      const {data:current,error:linkError}=await admin.from('approval_link_tokens').select('token_encrypted,expires_at').eq('demand_id',demand.id).eq('demand_version_id',version.id).is('revoked_at',null).is('used_at',null).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      const {data:current,error:linkError}=await admin.from('approval_link_tokens').select('demand_version_id,token_encrypted,expires_at').eq('demand_id',demand.id).is('revoked_at',null).is('used_at',null).order('created_at',{ascending:false}).limit(1).maybeSingle();
       if(linkError)fail('Não foi possível carregar o link. Execute novamente database/client-approval-portal.sql no Supabase e publique a versão mais recente.',503);
       const base=process.env.APP_URL||new URL(request.url).origin;
       if(current?.token_encrypted&&Date.parse(current.expires_at)>Date.now()) {
         try{return Response.json({status:demand.status,url:approvalUrl(base,decryptApprovalToken(current.token_encrypted,process.env.SUPABASE_SERVICE_ROLE_KEY))},{headers});}catch{}
       }
-      let url;try{url=await issueApprovalLink(admin,demand.id,version.id,base)}catch{fail('Não foi possível criar o link. Execute novamente database/client-approval-portal.sql no Supabase e publique a versão mais recente.',503)}
+      let version=null;
+      const {data:pendingSet,error:setError}=await admin.from('approval_option_sets').select('id').eq('demand_id',demand.id).eq('state','pending').order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if(setError)fail('Não foi possível carregar as opções desta aprovação.',503);
+      if(pendingSet){
+        const {data,error}=await admin.from('demand_versions').select('id,status').eq('demand_id',demand.id).eq('approval_option_set_id',pendingSet.id).eq('status','sent_for_review').order('version_number',{ascending:false}).limit(1).maybeSingle();
+        if(error)fail('Não foi possível carregar as opções desta aprovação.',503);version=data;
+      }else if(current?.demand_version_id){
+        const {data,error}=await admin.from('demand_versions').select('id,status').eq('demand_id',demand.id).eq('id',current.demand_version_id).eq('status','sent_for_review').maybeSingle();
+        if(error)fail('Não foi possível carregar esta versão para aprovação.',503);version=data;
+      }else{
+        const {data,error}=await admin.from('demand_versions').select('id,status').eq('demand_id',demand.id).is('approval_option_set_id',null).eq('status','sent_for_review').order('version_number',{ascending:false}).limit(1).maybeSingle();
+        if(error)fail('Não foi possível carregar esta versão para aprovação.',503);version=data;
+      }
+      if(!version)fail('Esta aprovação não está mais disponível.',409);
+      let url;try{url=await issueApprovalLink(admin,demand.id,version.id,base)}catch(error){console.error('AVESSO approval link reissue failed',{code:error.code||'unknown',message:error.message});fail('Não foi possível criar o link seguro. Confira as funções do portal de aprovação no Supabase.',503)}
       return Response.json({status:demand.status,url},{headers});
     }
     if(b.action==='history') {
