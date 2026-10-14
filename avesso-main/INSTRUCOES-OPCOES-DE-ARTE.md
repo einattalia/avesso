@@ -2,7 +2,7 @@
 
 ## Como usar
 
-1. No card da produção, envie cada alternativa como uma versão separada.
+1. Abra o card e selecione várias imagens de uma vez no campo de envio; cada arquivo será salvo como uma versão separada. Também dá para selecionar várias imagens ao criar ou editar o card.
 2. Na tela de detalhes do card, marque pelo menos duas versões e clique em **Enviar opções para aprovação**.
 3. O cliente verá as artes juntas no mesmo link e poderá escolher uma ou solicitar ajustes.
 4. Quando escolher, a versão selecionada ficará aprovada e identificada para a equipe.
