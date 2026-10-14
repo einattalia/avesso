@@ -9,6 +9,8 @@
 
 O envio aceita de 2 a 8 versões por rodada. Se o cliente solicitar ajustes, a equipe pode enviar uma nova rodada com as versões atualizadas.
 
+Ao anexar arquivos diretamente no card que está aguardando aprovação ou com ajustes solicitados, o sistema encerra o link anterior e publica a nova versão para aprovação automaticamente. Uma imagem gera um novo link de aprovação; várias imagens viram opções para o cliente escolher.
+
 ## Atualização do Supabase
 
 No SQL Editor do Supabase, execute novamente `database/client-approval-portal.sql` depois de `database/briefing-production-setup.sql` e `database/production-projects-setup.sql`. Esse script cria os registros do conjunto de opções e as funções que registram a escolha. Depois, publique a aplicação atualizada.
