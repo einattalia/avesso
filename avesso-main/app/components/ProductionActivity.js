@@ -1,0 +1,16 @@
+'use client';
+import {useEffect,useState} from 'react';
+import {fileApi} from '../../lib/r2-client';
+import {PRODUCTION_STATES,productionLabel,workflowState} from '../../lib/production-policy.mjs';
+export default function ProductionActivity({supabase,demand,onUpdated,refreshKey=0}) {
+  const [history,setHistory]=useState([]),[notices,setNotices]=useState([]),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+  const api=body=>fileApi(supabase,{...body,demandId:demand.id},'/api/production');
+  async function load(){const [h,n]=await Promise.all([api({action:'history'}),api({action:'notifications'})]);setHistory(h.history);setNotices(n.notifications)}
+  useEffect(()=>{load().catch(e=>setError(e.message))},[demand.id,demand.status,refreshKey]);
+  async function change(status){setBusy(true);setError('');setMessage('');try{const result=await api({action:'status',status});onUpdated(result.status);await load()}catch(e){setError(e.message)}finally{setBusy(false)}}
+  async function retry(){setBusy(true);setError('');try{const result=await api({action:'retryNotification'});setMessage(result.notice?.message||'Aviso consultado.');setNotices(result.notifications)}catch(e){setError(e.message)}finally{setBusy(false)}}
+  const currentStatus=workflowState(demand.status);
+  const labels={pending:'Pendente de envio',sending:'Enviando',accepted:'Aceito pela API do WhatsApp',failed:'Envio recusado',uncertain:'Envio não confirmado',cancelled:'Cancelado'};
+  return <section className="productionActivity"><h3>Atividade da produção</h3><ol className="productionSteps">{PRODUCTION_STATES.map(([key,label])=><li key={key} className={currentStatus===key?'current':''}>{label}</li>)}</ol><label>Atualizar atividade<select value={currentStatus} disabled={busy} onChange={e=>change(e.target.value)}>{!PRODUCTION_STATES.some(([key])=>key===currentStatus)&&<option value={demand.status}>{productionLabel(demand.status)}</option>}{PRODUCTION_STATES.map(([key,label])=><option key={key} value={key} disabled={['with_client','approved'].includes(key)}>{label}</option>)}</select></label><p>Use “Enviar para aprovação” na versão pronta. O cliente aprova pelo portal; depois avance para agendamento e postagem.</p><details><summary>Histórico de atividades</summary>{history.length?<ul>{history.map(h=><li key={h.id}>{productionLabel(h.from_status)} → {productionLabel(h.to_status)} · {new Date(h.created_at).toLocaleString('pt-BR')}</li>)}</ul>:<p>Nenhuma mudança registrada nesta versão.</p>}</details><details><summary>Avisos de aprovação por WhatsApp</summary><p>O cliente precisa ter WhatsApp cadastrado e autorizar os avisos em “Editar cliente”. A API da Meta também precisa estar configurada.</p>{notices.map(n=><p key={n.id}>{labels[n.state]||n.state}{n.error_code?` · código ${n.error_code}`:''}</p>)}{notices.some(n=>['pending','failed'].includes(n.state)&&n.attempts<3)&&<button type="button" className="secondary" disabled={busy} onClick={retry}>Tentar enviar aviso</button>}{notices.some(n=>n.state==='uncertain')&&<p>Confira o recebimento no WhatsApp antes de qualquer reenvio para evitar mensagens duplicadas.</p>}</details>{error&&<p className="loginError" role="alert">{error}</p>}{message&&<p className="saveMsg" role="status">{message}</p>}</section>;
+}
+
