@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-vm-modules --test tests/*.test.mjs",
+    "test": "node --experimental-vm-modules --test",
     "test:database": "node tests/database/verify.mjs"
   },
   "dependencies": {

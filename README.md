@@ -2,7 +2,7 @@
 
 Leia **[LEIA-PRIMEIRO-UX.md](LEIA-PRIMEIRO-UX.md)** para recursos, testes, migração pendente e publicação.
 
-Produção agora organiza artes em projetos. Antes de publicar esta atualização, execute `database/production-projects-setup.sql` no SQL Editor do Supabase e siga as instruções atualizadas em [INSTRUCOES-BRIEFING-WHATSAPP.md](INSTRUCOES-BRIEFING-WHATSAPP.md).
+Produção agora organiza artes em projetos. Para publicar, execute `database/production-projects-setup.sql` e depois `database/client-approval-portal.sql` no SQL Editor do Supabase. Se o portal já estava instalado, execute `client-approval-portal.sql` novamente para habilitar a recuperação persistente do link no card. O script atualiza a tabela e adiciona a função necessária sem invalidar links ativos. Os links públicos de aprovação expiram em 14 dias, são vinculados a uma única versão e não exigem login. Siga também [INSTRUCOES-BRIEFING-WHATSAPP.md](INSTRUCOES-BRIEFING-WHATSAPP.md).
 
 # AVESSO — atualização 6
 

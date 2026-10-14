@@ -130,4 +130,37 @@ $$;
 revoke all on function public.avesso_claim_approval_notification(uuid) from public,anon,authenticated;
 grant execute on function public.avesso_claim_approval_notification(uuid) to service_role;
 
+-- Uploading a revised artwork while approval is pending ends the old approval
+-- atomically with creation of the new draft version. The old public link must
+-- never approve a version that has already been replaced.
+create or replace function public.avesso_finalize_r2_upload(session_id uuid,actor_id uuid)
+returns integer language plpgsql security invoker set search_path='' as $$
+declare s public.r2_upload_sessions; d public.demands; n integer;
+begin
+  select * into s from public.r2_upload_sessions where id=session_id and user_id=actor_id for update;
+  if not found then raise exception 'Upload unavailable'; end if;
+  select * into d from public.demands where id=s.demand_id for update;
+  if not found or not exists (
+    select 1 from public.organization_members m where m.organization_id=d.organization_id
+      and m.user_id=actor_id and m.is_active=true and m.role<>'client_user'
+  ) then raise exception 'Permission denied'; end if;
+  if s.state='completed' then return s.version_number; end if;
+  if s.state<>'pending' or s.expires_at<=now() then raise exception 'Upload expired'; end if;
+  select coalesce(max(version_number),0)+1 into n from public.demand_versions where demand_id=s.demand_id;
+  insert into public.demand_versions(demand_id,version_number,storage_path,storage_provider,file_name,mime_type,file_size,uploaded_by,status)
+    values(s.demand_id,n,s.object_key,'r2',s.file_name,s.mime_type,s.file_size,actor_id,'draft');
+  if d.status='with_client' then
+    update public.approval_link_tokens set revoked_at=now()
+      where demand_id=d.id and revoked_at is null and used_at is null;
+    update public.approval_notifications set state='cancelled'
+      where demand_id=d.id and state in ('pending','failed');
+  end if;
+  update public.demands set status='internal_review' where id=d.id;
+  update public.r2_upload_sessions set state='completed',version_number=n where id=s.id;
+  return n;
+end;
+$$;
+revoke all on function public.avesso_finalize_r2_upload(uuid,uuid) from public,anon,authenticated;
+grant execute on function public.avesso_finalize_r2_upload(uuid,uuid) to service_role;
+
 commit;

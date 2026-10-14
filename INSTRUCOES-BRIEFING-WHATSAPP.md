@@ -7,6 +7,7 @@
 3. Preserve as variáveis Supabase e R2. Para o bucket da sua configuração mais recente, use `R2_BUCKET_NAME=avesso-producoes`. O nome precisa coincidir exatamente com o bucket autorizado pelo token. Não copie valores de exemplo sobre credenciais reais.
 4. Mantenha o bucket privado. Configure CORS conforme `config/r2-cors.json` para `https://avesso-seven.vercel.app`.
 5. Na Vercel, em Settings → Environment Variables → Production, cadastre `APP_URL=https://avesso-seven.vercel.app`. Deixe `WHATSAPP_ENABLED=false` até configurar a Meta. Salve as variáveis antes de publicar.
+6. Execute `database/client-approval-portal.sql` depois de `database/production-projects-setup.sql` para habilitar os links públicos sem login.
 6. Confira o build do novo commit e execute os testes de uso ao final deste guia.
 
 ## Organização dos clientes
@@ -28,7 +29,7 @@ O mesmo fluxo atende criativos e vídeos. O upload registra a produção. Enviar
 
 Na aba **Produção** geral, a lista fechada mostra somente o nome de cada cliente. Clique no nome para ver, de forma informativa, os projetos e o que está sendo produzido. Dentro do cliente, **+ Novo projeto** organiza uma campanha; em cada projeto, **+ Adicionar criativo ou vídeo** cria um card individual com tipo, briefing, observações, responsável e prazo. Os botões **Editar projeto**, **Excluir projeto**, **Editar card** e **Excluir card** ficam visíveis na área aberta. Cada card aceita criativo, vídeo ou PDF para aprovação. Abra o card para enviar a versão ao cliente e acompanhar a conversa. A aprovação continua sendo feita pelo cliente no portal e sua data aparece automaticamente no card. Depois da aprovação, o Design define a previsão de publicação e organiza o calendário. Ao excluir um projeto, suas artes e arquivos permanecem disponíveis como conteúdos sem projeto. Ao excluir uma arte, o card é arquivado e seus arquivos e versões são preservados.
 
-Versões antigas não podem aprovar o material atual. Enviar novamente a mesma versão não cria outro aviso. O link abre o portal, exige login e destaca o material. Existe também um botão para copiar o link. As etapas de agendamento e postagem registram o trabalho no AVESSO; a integração implementada envia avisos de aprovação pelo WhatsApp.
+Versões antigas não podem aprovar o material atual. Enviar novamente a mesma versão não cria outro aviso. O link público abre o material específico sem exigir login. Enquanto o card estiver em **Aguardando aprovação**, a agência vê o link no próprio card e pode copiá-lo mesmo depois de fechar e reabrir a tela. Cada link expira em 14 dias; ao expirar, o card gera um link novo. As etapas de agendamento e postagem registram o trabalho no AVESSO; a integração implementada envia avisos de aprovação pelo WhatsApp.
 
 ## Ativar a API oficial da Meta
 
@@ -39,7 +40,7 @@ Obtenha o **Phone Number ID**, a versão da Graph API utilizada pelo aplicativo 
 Crie um modelo de mensagem chamado `avesso_aprovacao`, em português do Brasil (`pt_BR`), e aguarde a aprovação da Meta. O código espera exatamente:
 
 - Corpo com **um parâmetro**, preenchido com o título do material. Sugestão: “Seu material {{1}} está pronto para aprovação. Acesse o AVESSO pelo botão abaixo.”
-- Um botão de URL na posição 0, chamado “Aprovar material”, com URL dinâmica `https://avesso-seven.vercel.app/?approval={{1}}`. O parâmetro do botão recebe o identificador do material. O domínio deve coincidir com `APP_URL`.
+- Um botão de URL na posição 0, chamado “Aprovar material”, com URL dinâmica `https://avesso-seven.vercel.app/aprovacao/{{1}}`. O parâmetro do botão recebe o token aleatório e o domínio deve coincidir com `APP_URL`.
 
 Classifique o modelo conforme as regras da Meta. Autorização do destinatário, aprovação do modelo, disponibilidade do número e preços dependem da Meta.
 

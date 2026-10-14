@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture} from './helpers/api-fixture.mjs';
 import {brazilPhone,approvalUrl,templateMessage,productionLabel} from '../lib/production-policy.mjs';
+import {createApprovalToken,decryptApprovalToken,encryptApprovalToken,hashApprovalToken} from '../lib/approval-token.mjs';
 
 test('briefing text and attachments remain independent of contracts and production versions',async()=>{
   const f=await fixture();
@@ -27,6 +28,16 @@ test('production send requires agency access and does not approve on behalf of c
   assert.equal((await client.request({action:'send',demandId:'demand',versionId:'version'})).status,403);
   assert.equal((await client.request({action:'approve',demandId:'demand',versionId:'version'})).status,200);
 });
+test('approval link stays retrievable for the agency while the demand awaits review',async()=>{
+  const agency=await fixture({routeName:'production'});
+  const first=await agency.request({action:'approvalLink',demandId:'demand'});
+  const reopened=await agency.request({action:'approvalLink',demandId:'demand'});
+  assert.equal(first.status,200);assert.equal(reopened.status,200);
+  assert.equal(first.body.url,reopened.body.url);
+  assert.match(first.body.url,/\/aprovacao\/[a-f0-9]{64}$/);
+  const client=await fixture({routeName:'production',client:true});
+  assert.equal((await client.request({action:'approvalLink',demandId:'demand'})).status,403);
+});
 test('failed production transaction never reports success or dispatches notification',async()=>{
   const f=await fixture({routeName:'production',rpcError:true});
   const result=await f.request({action:'send',demandId:'demand',versionId:'version'});
@@ -34,9 +45,11 @@ test('failed production transaction never reports success or dispatches notifica
 });
 test('approval messages normalize Brazil phones and carry a portal link without storage secrets',()=>{
   assert.equal(brazilPhone('(11) 99999-9999'),'5511999999999');assert.equal(brazilPhone('+55 11 99999-9999'),'5511999999999');assert.throws(()=>brazilPhone('123'));
-  const url=approvalUrl('https://avesso-seven.vercel.app/','demand');assert.equal(url,'https://avesso-seven.vercel.app/?approval=demand');assert.throws(()=>approvalUrl('http://example.com','demand'));
-  const payload=templateMessage({phone:'11999999999',title:'Criativo de outubro',demandId:'demand',template:'avesso_aprovacao'});
-  assert.equal(payload.template.components[1].parameters[0].text,'demand');assert.equal(payload.template.components[0].parameters[0].text,'Criativo de outubro');assert.ok(!JSON.stringify(payload).includes('r2.cloudflarestorage'));
+  const token=createApprovalToken();assert.equal(token.length,64);assert.notEqual(hashApprovalToken(token),token);assert.throws(()=>hashApprovalToken('demand'));
+  const encrypted=encryptApprovalToken(token,'s'.repeat(64));assert.notEqual(encrypted,token);assert.equal(decryptApprovalToken(encrypted,'s'.repeat(64)),token);assert.throws(()=>decryptApprovalToken(encrypted,'x'.repeat(64)));
+  const url=approvalUrl('https://avesso-seven.vercel.app/',token);assert.equal(url,`https://avesso-seven.vercel.app/aprovacao/${token}`);assert.throws(()=>approvalUrl('http://example.com',token));
+  const payload=templateMessage({phone:'11999999999',title:'Criativo de outubro',token,template:'avesso_aprovacao'});
+  assert.equal(payload.template.components[1].parameters[0].text,token);assert.equal(payload.template.components[0].parameters[0].text,'Criativo de outubro');assert.ok(!JSON.stringify(payload).includes('r2.cloudflarestorage'));
   assert.equal(productionLabel('with_client'),'Aguardando aprovação');assert.equal(productionLabel('posted'),'Postado');
 });
 
