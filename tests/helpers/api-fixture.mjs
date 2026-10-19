@@ -12,7 +12,7 @@ export async function fixture({routeName="files",member=true,client=false,token=
   function query(table) {
     let filters=[],mutation=null,values=null,single=false,countMode=false;
     const matches=r=>filters.every(f=>f(r));
-    function result(){let rows=(tables[table]||[]).filter(matches);
+    function result(){let rows=(tables[table]||[]).filter(matches);if(table==='demands')rows=rows.map(row=>({...row,clients:tables.clients.find(client=>client.id===row.client_id)||null,demand_versions:(tables.demand_versions||[]).filter(version=>version.demand_id===row.id)}));
       if(mutation==='insert'){rows=(Array.isArray(values)?values:[values]).map(v=>({id:randomUUID(),created_at:new Date().toISOString(),...v}));(tables[table]||=[]).push(...rows);}
       if(mutation==='update')rows.forEach(r=>Object.assign(r,values));
       if(mutation==='delete')(tables[table]||[]).splice(0,(tables[table]||[]).length,...(tables[table]||[]).filter(r=>!matches(r)));
