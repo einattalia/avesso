@@ -76,13 +76,17 @@ export async function POST(request){
   }
   if(b.action==='createArt'){
    const title=clean(b.title,200);if(!title)fail('Dê um nome para esta arte.');
-   const row=checked(await admin.from('demands').insert({organization_id:project.organization_id,client_id:project.client_id,project_id:project.id,title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:clean(b.responsibleName,160)||null,due_date:dateValue(b.dueDate),status:'in_production'}).select('id,project_id,title').single());
+   let responsibleMemberId=null,responsibleName=clean(b.responsibleName,160)||null;
+   if(b.responsibleMemberId){const member=checked(await admin.from('agency_team_members').select('id,name').eq('id',b.responsibleMemberId).eq('organization_id',organizationId).maybeSingle());if(!member)fail('Responsável indisponível nesta organização.',403);responsibleMemberId=member.id;responsibleName=member.name;}
+   const row=checked(await admin.from('demands').insert({organization_id:project.organization_id,client_id:project.client_id,project_id:project.id,title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:responsibleName,responsible_member_id:responsibleMemberId,due_date:dateValue(b.dueDate),status:'in_production'}).select('id,project_id,title').single());
    return Response.json({art:row},{status:201,headers});
   }
   if(b.action==='updateArt'){
    if(!b.demandId)fail('Arte inválida.');
    const title=clean(b.title,200);if(!title)fail('Dê um nome para esta arte.');
-   const row=checked(await admin.from('demands').update({title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:clean(b.responsibleName,160)||null,due_date:dateValue(b.dueDate)}).eq('id',b.demandId).eq('project_id',project.id).is('archived_at',null).select('id,project_id,title,type,briefing,notes,responsible_name,due_date').maybeSingle());
+   let responsibleMemberId=null,responsibleName=clean(b.responsibleName,160)||null;
+   if(b.responsibleMemberId){const member=checked(await admin.from('agency_team_members').select('id,name').eq('id',b.responsibleMemberId).eq('organization_id',organizationId).maybeSingle());if(!member)fail('Responsável indisponível nesta organização.',403);responsibleMemberId=member.id;responsibleName=member.name;}
+   const row=checked(await admin.from('demands').update({title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:responsibleName,responsible_member_id:responsibleMemberId,due_date:dateValue(b.dueDate)}).eq('id',b.demandId).eq('project_id',project.id).is('archived_at',null).select('id,project_id,title,type,briefing,notes,responsible_name,responsible_member_id,due_date').maybeSingle());
    if(!row)fail('Arte indisponível.',404);
    return Response.json({art:row},{headers});
   }
