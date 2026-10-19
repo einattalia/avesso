@@ -52,13 +52,13 @@ export async function POST(request) {
       if(error)throw error;return Response.json({team:data||[]},{headers});
     }
     if(['create','update'].includes(b.action)) {
-      if(typeof b.name!=='string'||!b.name.trim()||b.name.trim().length>120||!['designer','videomaker'].includes(b.role))fail('Preencha o nome e selecione Designer ou Videomaker.');
+      if(typeof b.name!=='string'||!b.name.trim()||b.name.trim().length>120||!['designer','videomaker','paid_media'].includes(b.role))fail('Preencha o nome e selecione uma função válida.');
       if(b.action==='create') {
-        const {error}=await admin.from('agency_team_members').insert({organization_id:b.organizationId,name:b.name.trim(),role:b.role,is_active:true});
+        const {error}=await admin.from('agency_team_members').insert({organization_id:b.organizationId,name:b.name.trim(),role:b.role,photo_path:typeof b.photoPath==='string'?b.photoPath:null,is_active:true});
         if(error)throw error;
       }else {
         if(typeof b.active!=='boolean')fail('Status da pessoa inválido.');
-        const {data,error}=await admin.from('agency_team_members').update({name:b.name.trim(),role:b.role,is_active:b.active}).eq('id',b.memberId).eq('organization_id',b.organizationId).select('id').maybeSingle();
+        const {data,error}=await admin.from('agency_team_members').update({name:b.name.trim(),role:b.role,photo_path:typeof b.photoPath==='string'?b.photoPath:null,is_active:b.active}).eq('id',b.memberId).eq('organization_id',b.organizationId).select('id').maybeSingle();
         if(error)throw error;if(!data)fail('Pessoa indisponível.',404);
       }
       return Response.json({saved:true},{headers});
