@@ -52,9 +52,11 @@ export async function POST(request) {
       if(error)throw error;return Response.json({team:data||[]},{headers});
     }
     if(['create','update'].includes(b.action)) {
+      const photoPath=typeof b.photoPath==='string'?b.photoPath:null;
+      if(photoPath&&!photoPath.startsWith(`${b.organizationId}/team/`))fail('Foto de equipe inválida.');
       if(typeof b.name!=='string'||!b.name.trim()||b.name.trim().length>120||!['designer','videomaker','paid_media'].includes(b.role))fail('Preencha o nome e selecione uma função válida.');
       if(b.action==='create') {
-        const {error}=await admin.from('agency_team_members').insert({organization_id:b.organizationId,name:b.name.trim(),role:b.role,photo_path:typeof b.photoPath==='string'?b.photoPath:null,is_active:true});
+        const {error}=await admin.from('agency_team_members').insert({organization_id:b.organizationId,name:b.name.trim(),role:b.role,photo_path:photoPath,is_active:true});
         if(error)throw error;
       }else {
         if(typeof b.active!=='boolean')fail('Status da pessoa inválido.');
