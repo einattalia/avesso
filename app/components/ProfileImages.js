@@ -9,10 +9,10 @@ export function PrivateProfileImage({supabase,path,name,className='profileAvatar
  return <div className={fallbackClassName} aria-label={name||'Foto de perfil'}>{name?.trim()?.[0]?.toUpperCase()||'?'}</div>;
 }
 
-export function ProfileImageField({supabase,path,onFileChange,label='Foto ou logo'}){
+export function ProfileImageField({supabase,path,onFileChange,label='Foto ou logo',action}){
  const [file,setFile]=useState(null),[savedUrl,setSavedUrl]=useState('');
  useEffect(()=>{let active=true;if(!path){setSavedUrl('');return()=>{active=false}}signedProfileImage(supabase,path).then(url=>{if(active)setSavedUrl(url)}).catch(()=>{if(active)setSavedUrl('')});return()=>{active=false}},[supabase,path]);
  const [preview,setPreview]=useState('');
  useEffect(()=>{if(!file){setPreview(savedUrl);return}const url=URL.createObjectURL(file);setPreview(url);return()=>URL.revokeObjectURL(url)},[file,savedUrl]);
- return <div className="profilePhotoField"><span>{label}</span><div className="profilePhotoControls">{preview?<img src={preview} className="profilePhotoPreview" alt="Prévia da imagem selecionada"/>:<div className="profilePhotoPreview profilePhotoPlaceholder">Sem foto</div>}<label className="secondary profilePhotoButton">Escolher imagem<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const selected=event.target.files?.[0]||null;setFile(selected);onFileChange(selected);event.target.value=''}}/></label></div><small>JPG, PNG ou WebP, até 5 MB. As imagens ficam privadas no espaço da agência.</small></div>;
+ return <div className="profilePhotoField"><span>{label}</span><div className="profilePhotoControls">{preview?<img src={preview} className="profilePhotoPreview" alt="Prévia da imagem selecionada"/>:<div className="profilePhotoPreview profilePhotoPlaceholder">Sem foto</div>}<label className="secondary profilePhotoButton">Escolher imagem<input type="file" accept="image/jpeg,image/png,image/webp" onChange={event=>{const selected=event.target.files?.[0]||null;setFile(selected);onFileChange(selected);event.target.value=''}}/></label>{action}</div><small>Use uma imagem quadrada (recomendado: 400 × 400 px), em JPG, PNG ou WebP, com até 5 MB. Ela será exibida em formato circular.</small></div>;
 }
