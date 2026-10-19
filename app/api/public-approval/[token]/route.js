@@ -15,7 +15,7 @@ async function getApproval(token){
   const {data:link,error}=await admin.from('approval_link_tokens').select('id,client_id,demand_id,demand_version_id,approval_option_set_id,expires_at,revoked_at,used_at').eq('token_hash',digest).maybeSingle();
   if(error||!link||link.revoked_at||Date.parse(link.expires_at)<=Date.now())fail('Este link de aprovação é inválido ou expirou.',404);
   const [{data:demand,error:demandError},{data:version,error:versionError},{data:client,error:clientError},{data:latest,error:latestError},{data:optionSet,error:setError}]=await Promise.all([
-    admin.from('demands').select('id,client_id,title,status,archived_at').eq('id',link.demand_id).eq('client_id',link.client_id).maybeSingle(),
+    admin.from('demands').select('id,client_id,title,status,archived_at,publish_date').eq('id',link.demand_id).eq('client_id',link.client_id).maybeSingle(),
     admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption').eq('id',link.demand_version_id).eq('demand_id',link.demand_id).maybeSingle(),
     admin.from('clients').select('id,name').eq('id',link.client_id).maybeSingle(),
     admin.from('demand_versions').select('id').eq('demand_id',link.demand_id).order('version_number',{ascending:false}).limit(1).maybeSingle(),
@@ -49,7 +49,7 @@ async function getApproval(token){
     fail('Arquivo indisponível.',404);
   }
   const options=await Promise.all(versions.map(async v=>({id:v.id,versionNumber:v.version_number,fileName:v.file_name,mimeType:v.mime_type,fileSize:v.file_size,caption:v.caption||'',fileUrl:await signedFile(v)})));
-  return {admin,digest,alreadyResolved,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',data:{clientName:client.name,title:demand.title,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,fileSize:version.file_size,caption:version.caption||'',fileUrl:await signedFile(version),options:optionSet?options:null,selectedVersionId:optionSet?.selected_version_id||null,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',reviewNote:optionSet?.review_note||reviewEvent.data?.note||''}};
+  return {admin,digest,alreadyResolved,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',data:{clientName:client.name,title:demand.title,publishDate:demand.publish_date||null,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,fileSize:version.file_size,caption:version.caption||'',fileUrl:await signedFile(version),options:optionSet?options:null,selectedVersionId:optionSet?.selected_version_id||null,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',reviewNote:optionSet?.review_note||reviewEvent.data?.note||''}};
 }
 
 export async function GET(_request,{params}){
