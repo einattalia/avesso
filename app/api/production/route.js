@@ -41,7 +41,7 @@ export async function POST(request) {
       }
       if(!version)fail('Esta aprovação não está mais disponível.',409);
       const currentMatches=current?.demand_version_id===version.id&&(current.approval_option_set_id||null)===(optionSetId||null);
-      if(currentMatches&&current.token_encrypted&&Date.parse(current.expires_at)>Date.now()){
+      if(!b.forceNew&&currentMatches&&current.token_encrypted&&Date.parse(current.expires_at)>Date.now()){
         try{return Response.json({status:demand.status,url:approvalUrl(base,decryptApprovalToken(current.token_encrypted,process.env.SUPABASE_SERVICE_ROLE_KEY))},{headers});}catch{}
       }
       let url;try{url=await issueApprovalLink(admin,demand.id,version.id,base)}catch(error){console.error('AVESSO approval link reissue failed',{code:error.code||'unknown',message:error.message});fail('Não foi possível criar o link seguro. Confira as funções do portal de aprovação no Supabase.',503)}
