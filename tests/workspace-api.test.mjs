@@ -57,3 +57,27 @@ test('approved captions cannot be silently changed and client cannot sign a slid
  const c=await fixture({routeName:'workspace',client:true});c.tables.demand_versions[0].status='sent_for_review';
  assert.equal((await c.request({action:'initAsset',clientId:'client',subjectType:'version',subjectId:'version',purpose:'slide',mime:'image/png',name:'x.png',size:10})).status,409);
 });
+
+test('contents keep client change requests attached to the exact sent artwork',async()=>{
+ const f=await fixture({routeName:'workspace'});
+ const sentAt='2026-10-19T15:00:00.000Z';
+ f.tables.demand_versions.splice(0,f.tables.demand_versions.length,
+  {id:'single-v2',demand_id:'demand',approval_option_set_id:null,version_number:2,status:'changes_requested',file_name:'single.png'},
+  {id:'option-v3',demand_id:'demand',approval_option_set_id:'option-set',version_number:3,status:'changes_requested',file_name:'option-1.png'},
+  {id:'option-v4',demand_id:'demand',approval_option_set_id:'option-set',version_number:4,status:'changes_requested',file_name:'option-2.png'}
+ );
+ f.tables.approval_events.push(
+  {id:'note-single',demand_version_id:'single-v2',event:'changes_requested',note:'Ajustar o texto',created_at:sentAt},
+  {id:'note-option-1',demand_version_id:'option-v3',event:'changes_requested',note:'Trocar a cor',created_at:sentAt},
+  {id:'note-option-2',demand_version_id:'option-v4',event:'changes_requested',note:'Trocar a cor',created_at:sentAt}
+ );
+ const r=await f.request({action:'contents',clientId:'client'});
+ assert.equal(r.status,200);
+ const notes=r.body.items[0].reviewNotes;
+ assert.equal(notes.length,2);
+ const single=notes.find(item=>item.note==='Ajustar o texto');
+ const options=notes.find(item=>item.note==='Trocar a cor');
+ assert.deepEqual(single.versionIds,['single-v2']);
+ assert.deepEqual(options.versionIds.sort(),['option-v3','option-v4']);
+ assert.deepEqual(options.versionNumbers,[3,4]);
+});
