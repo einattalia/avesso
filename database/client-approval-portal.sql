@@ -22,11 +22,18 @@ create table if not exists public.approval_option_sets (
   demand_id uuid not null references public.demands(id) on delete cascade,
   client_id uuid not null references public.clients(id) on delete cascade,
   state text not null default 'pending' check(state in ('pending','selected','changes_requested','superseded')),
+  review_mode text not null default 'options' check(review_mode in ('options','bundle')),
   selected_version_id uuid references public.demand_versions(id) on delete set null,
   review_note text,
   created_at timestamptz not null default now(),
   resolved_at timestamptz
 );
+alter table public.approval_option_sets add column if not exists review_mode text not null default 'options';
+do $ begin
+  if not exists(select 1 from pg_constraint where conname='approval_option_sets_review_mode_check' and conrelid='public.approval_option_sets'::regclass) then
+    alter table public.approval_option_sets add constraint approval_option_sets_review_mode_check check(review_mode in ('options','bundle'));
+  end if;
+end $;
 alter table public.demand_versions add column if not exists approval_option_set_id uuid references public.approval_option_sets(id) on delete set null;
 alter table public.approval_link_tokens add column if not exists approval_option_set_id uuid references public.approval_option_sets(id) on delete set null;
 alter table public.approval_option_sets enable row level security;
@@ -134,6 +141,21 @@ $$;
 revoke all on function public.avesso_send_approval_options(uuid,uuid[],uuid,text,text,timestamptz) from public,anon,authenticated;
 grant execute on function public.avesso_send_approval_options(uuid,uuid[],uuid,text,text,timestamptz) to service_role;
 
+create or replace function public.avesso_send_approval_bundle(target_demand uuid,target_versions uuid[],actor_id uuid,token_digest text,encrypted_value text,link_expires_at timestamptz)
+returns text language plpgsql security invoker set search_path='' as $
+declare result text;
+begin
+  result:=public.avesso_send_approval_options(target_demand,target_versions,actor_id,token_digest,encrypted_value,link_expires_at);
+  update public.approval_option_sets s set review_mode='bundle'
+  from public.approval_link_tokens l
+  where l.token_hash=token_digest and l.demand_id=target_demand and l.approval_option_set_id=s.id and s.state='pending';
+  if not found then raise exception 'Could not configure carousel approval'; end if;
+  return result;
+end;
+$;
+revoke all on function public.avesso_send_approval_bundle(uuid,uuid[],uuid,text,text,timestamptz) from public,anon,authenticated;
+grant execute on function public.avesso_send_approval_bundle(uuid,uuid[],uuid,text,text,timestamptz) to service_role;
+
 -- Resolve a grouped review with the client's selected version or adjustment note.
 create or replace function public.avesso_review_public_link_v2(token_digest text,decision text,note text default '',selected_version uuid default null)
 returns text language plpgsql security invoker set search_path='' as $$
@@ -150,18 +172,30 @@ begin
   if l.approval_option_set_id is not null then
     select * into option_set from public.approval_option_sets where id=l.approval_option_set_id and demand_id=l.demand_id for update;
     if l.used_at is not null then
-      if decision='approve' and option_set.state='selected' and option_set.selected_version_id=selected_version then return 'approved'; end if;
+      if decision='approve' and option_set.state='selected'
+        and ((option_set.review_mode='bundle' and option_set.selected_version_id is null)
+          or (option_set.review_mode<>'bundle' and option_set.selected_version_id=selected_version)) then return 'approved'; end if;
       if decision='changes' and option_set.state='changes_requested' then return 'changes_requested'; end if;
       raise exception 'Approval link unavailable';
     end if;
     if d.id is null or d.archived_at is not null or d.status<>'with_client' or option_set.id is null or option_set.state<>'pending' then raise exception 'Esta revisão não está mais aguardando aprovação.'; end if;
     if decision='approve' then
-      if selected_version is null or not exists(select 1 from public.demand_versions where id=selected_version and demand_id=d.id and approval_option_set_id=option_set.id and status='sent_for_review') then raise exception 'Escolha uma das opções enviadas.'; end if;
-      select * into v from public.demand_versions where id=selected_version and demand_id=d.id for update;
       outcome='approved';
-      update public.approval_option_sets set state='selected',selected_version_id=v.id,resolved_at=now() where id=option_set.id;
-      update public.demand_versions set status='approved' where id=v.id;
-      insert into public.approval_events(demand_version_id,user_id,event,actor_name) values(v.id,null,'approved','Cliente (link seguro)');
+      if option_set.review_mode='bundle' then
+        if selected_version is not null or not exists(select 1 from public.demand_versions where demand_id=d.id and approval_option_set_id=option_set.id and status='sent_for_review') then
+          raise exception 'O carrossel não está mais disponível para aprovação.';
+        end if;
+        update public.approval_option_sets set state='selected',selected_version_id=null,resolved_at=now() where id=option_set.id;
+        update public.demand_versions set status='approved' where demand_id=d.id and approval_option_set_id=option_set.id and status='sent_for_review';
+        insert into public.approval_events(demand_version_id,user_id,event,actor_name)
+          select id,null,'approved','Cliente (link seguro)' from public.demand_versions where demand_id=d.id and approval_option_set_id=option_set.id;
+      else
+        if selected_version is null or not exists(select 1 from public.demand_versions where id=selected_version and demand_id=d.id and approval_option_set_id=option_set.id and status='sent_for_review') then raise exception 'Escolha uma das opções enviadas.'; end if;
+        select * into v from public.demand_versions where id=selected_version and demand_id=d.id for update;
+        update public.approval_option_sets set state='selected',selected_version_id=v.id,resolved_at=now() where id=option_set.id;
+        update public.demand_versions set status='approved' where id=v.id;
+        insert into public.approval_events(demand_version_id,user_id,event,actor_name) values(v.id,null,'approved','Cliente (link seguro)');
+      end if;
       update public.demands set status='approved' where id=d.id;
     else
       outcome='changes_requested';
@@ -230,10 +264,18 @@ begin
   select * into option_set from public.approval_option_sets where id=v.approval_option_set_id and demand_id=d.id and state='pending' for update;
   if not found then raise exception 'Esta revisão não está mais aguardando aprovação.'; end if;
   if decision='approve' then
-    update public.approval_option_sets set state='selected',selected_version_id=v.id,resolved_at=now() where id=option_set.id;
-    update public.demand_versions set status='approved' where id=v.id;
-    insert into public.approval_events(demand_version_id,user_id,event,actor_name) values(v.id,actor_id,'approved','Cliente');
     outcome='approved';
+    if option_set.review_mode='bundle' then
+      if not exists(select 1 from public.demand_versions where demand_id=d.id and approval_option_set_id=option_set.id and status='sent_for_review') then raise exception 'Carousel unavailable'; end if;
+      update public.approval_option_sets set state='selected',selected_version_id=null,resolved_at=now() where id=option_set.id;
+      update public.demand_versions set status='approved' where demand_id=d.id and approval_option_set_id=option_set.id and status='sent_for_review';
+      insert into public.approval_events(demand_version_id,user_id,event,actor_name)
+        select id,actor_id,'approved','Cliente' from public.demand_versions where demand_id=d.id and approval_option_set_id=option_set.id;
+    else
+      update public.approval_option_sets set state='selected',selected_version_id=v.id,resolved_at=now() where id=option_set.id;
+      update public.demand_versions set status='approved' where id=v.id;
+      insert into public.approval_events(demand_version_id,user_id,event,actor_name) values(v.id,actor_id,'approved','Cliente');
+    end if;
   else
     update public.approval_option_sets set state='changes_requested',review_note=v_note,resolved_at=now() where id=option_set.id;
     update public.demand_versions set status='changes_requested' where approval_option_set_id=option_set.id;
