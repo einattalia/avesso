@@ -15,7 +15,7 @@ import {teamApi} from '../lib/team-client';
 import {LayoutDashboard,Zap,Users,PanelsTopLeft,CircleCheckBig,CalendarDays,DollarSign,UserRoundCog,Settings,Bell,Search,ArrowUpRight,Menu,X,LogOut,FolderOpen,PackageCheck,FileText,WalletCards,Clapperboard,ChevronLeft,Plus,Save,Trash2,Pencil,Clock3,Upload,Play,Send,MessageSquare,Check,RefreshCw,Paperclip} from 'lucide-react';
 
 const supabase=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-const agencyNav=[['Visão geral',LayoutDashboard],['Clientes',Users],['Produção',PanelsTopLeft],['Aprovações',CircleCheckBig],['Calendário',CalendarDays],['Financeiro',DollarSign],['Equipe',UserRoundCog]];
+const agencyNav=[['Visão geral',LayoutDashboard],['Clientes',Users],['Calendário',CalendarDays],['Financeiro',DollarSign],['Equipe',UserRoundCog]];
 const clientNav=[['Início',LayoutDashboard],['Aprovações',CircleCheckBig],['Calendário',CalendarDays],['Referências',MessageSquare],['Branding',FolderOpen],['Entregas',PackageCheck],['Arquivos',FolderOpen]];
 
 export default function Page(){
