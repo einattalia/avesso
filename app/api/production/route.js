@@ -63,7 +63,10 @@ export async function POST(request) {
       const ids=[...new Set(Array.isArray(b.versionIds)?b.versionIds:[])];
       if(ids.length<2||ids.length>8||ids.some(id=>typeof id!=='string'||id.length>64))fail('Selecione de 2 a 8 versões para enviar ao cliente.');
       const token=createApprovalToken(),expiresAt=new Date(Date.now()+14*86400000).toISOString();
-      const {data,error}=await admin.rpc('avesso_send_approval_options',{target_demand:b.demandId,target_versions:ids,actor_id:user.id,token_digest:hashApprovalToken(token),encrypted_value:encryptApprovalToken(token,process.env.SUPABASE_SERVICE_ROLE_KEY),link_expires_at:expiresAt});
+      const {data:demandType,error:typeError}=await admin.from('demands').select('type').eq('id',b.demandId).maybeSingle();
+      if(typeError||!demandType)fail('Não foi possível identificar o formato desta arte.',409);
+      const rpcName=demandType.type==='Carrossel'?'avesso_send_approval_bundle':'avesso_send_approval_options';
+      const {data,error}=await admin.rpc(rpcName,{target_demand:b.demandId,target_versions:ids,actor_id:user.id,token_digest:hashApprovalToken(token),encrypted_value:encryptApprovalToken(token,process.env.SUPABASE_SERVICE_ROLE_KEY),link_expires_at:expiresAt});
       if(error){console.error('AVESSO option review transaction failed',{code:error.code});fail('Não foi possível enviar as opções. Confira se o SQL de opções de aprovação foi executado.',409)}
       let notice=null;try{notice=await dispatchApproval(admin,b.demandId,token)}catch{notice={state:'failed',message:'Opções publicadas; não foi possível enviar o aviso pelo WhatsApp.'}}
       return Response.json({status:data||'with_client',url:approvalUrl(process.env.APP_URL||new URL(request.url).origin,token),notice},{headers});
