@@ -29,7 +29,7 @@ async function fixture({foreignClient=false,expired=false,revoked=false,versionS
   });
   await module.evaluate();
   const params={params:Promise.resolve({token})};
-  return {token,calls,get:async()=>{const r=await module.namespace.GET(new Request('https://avesso.test/api'),params);return {status:r.status,body:await r.json(),headers:r.headers}},post:async()=>{const r=await module.namespace.POST(new Request('https://avesso.test/api',{method:'POST'}),params);return {status:r.status,body:await r.json()}},calls};
+  return {token,calls,get:async()=>{const r=await module.namespace.GET(new Request('https://avesso.test/api'),params);return {status:r.status,body:await r.json(),headers:r.headers}},post:async(body)=>{const r=await module.namespace.POST(new Request('https://avesso.test/api',{method:'POST',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}),params);return {status:r.status,body:await r.json()}},calls};
 }
 
 test('public approval serves only the linked client version without a login',async()=>{
