@@ -29,11 +29,14 @@ create table if not exists public.approval_option_sets (
   resolved_at timestamptz
 );
 alter table public.approval_option_sets add column if not exists review_mode text not null default 'options';
-do $ begin
+do $block$
+begin
   if not exists(select 1 from pg_constraint where conname='approval_option_sets_review_mode_check' and conrelid='public.approval_option_sets'::regclass) then
     alter table public.approval_option_sets add constraint approval_option_sets_review_mode_check check(review_mode in ('options','bundle'));
   end if;
-end $;
+end
+$block$;
+update public.approval_option_sets s set review_mode='bundle' from public.demands d where d.id=s.demand_id and d.type='Carrossel' and s.state='pending';
 alter table public.demand_versions add column if not exists approval_option_set_id uuid references public.approval_option_sets(id) on delete set null;
 alter table public.approval_link_tokens add column if not exists approval_option_set_id uuid references public.approval_option_sets(id) on delete set null;
 alter table public.approval_option_sets enable row level security;
