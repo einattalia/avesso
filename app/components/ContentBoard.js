@@ -68,7 +68,9 @@ export default function ContentBoard({supabase,client,ctx,renderDetail,onlyRevie
  async function load(){setLoading(true);setError('');try{const r=await request({action:'contents'});setItems(r.items);setProjects(r.projects||[]);setAgency(r.agency);if(!client&&ctx?.organization?.id){const {data,error:clientError}=await supabase.from('clients').select('id,name').eq('organization_id',ctx.organization.id).order('name');if(clientError)throw clientError;setAvailableClients(data||[])}}catch(e){setError(e.message)}finally{setLoading(false)}}
  useEffect(()=>{load()},[client?.id,ctx?.organization?.id]);
  const target=typeof window!=='undefined'?new URLSearchParams(window.location.search).get('approval'):null;
- const filtered=items.filter(d=>(status?d.status===status:d.status!=='approved')&&(!month||(d.publish_date||d.due_date||d.created_at).slice(0,7)===month)&&`${d.title} ${d.project?.title||''} ${d.clients?.name} ${d.type}`.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.id===target)-Number(a.id===target));
+ const todayDate=new Date(),todayKey=`${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
+ const postedByDate=d=>['approved','awaiting_scheduling','scheduled'].includes(d.status)&&d.publish_date&&d.publish_date<=todayKey;
+ const filtered=items.filter(d=>(status?d.status===status:!['approved','posted','delivered'].includes(d.status)&&!postedByDate(d))&&(!month||(d.publish_date||d.due_date||d.created_at).slice(0,7)===month)&&`${d.title} ${d.project?.title||''} ${d.clients?.name} ${d.type}`.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>Number(b.id===target)-Number(a.id===target));
  const latest=d=>[...(d.demand_versions||[])].sort((a,b)=>Number(b.id===d.selected_version_id)-Number(a.id===d.selected_version_id)||b.version_number-a.version_number)[0];
  const reviewOptions=d=>(d.demand_versions||[]).filter(v=>v.status==='sent_for_review').sort((a,b)=>a.version_number-b.version_number);
  function open(d){setSelected(d);setNote('');setSelectedOption(reviewOptions(d)[0]?.id||'')}
