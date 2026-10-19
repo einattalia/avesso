@@ -14,10 +14,10 @@ async function signedAsset(admin,demand,version){
     const {s3,bucket}=config();
     const {data:trusted,error}=await admin.from('r2_upload_sessions').select('id,bucket').eq('object_key',version.storage_path).eq('demand_id',demand.id).eq('state','completed').maybeSingle();
     if(error||!trusted||trusted.bucket!==bucket)fail('Arquivo indisponível.',404);
-    return getSignedUrl(s3,new GetObjectCommand({Bucket:bucket,Key:version.storage_path,ResponseCacheControl:'private, no-store'}),{expiresIn:3600});
+    return getSignedUrl(s3,new GetObjectCommand({Bucket:bucket,Key:version.storage_path,ResponseCacheControl:'private, no-store'}),{expiresIn:600});
   }
   if(version.storage_provider==='supabase'){
-    const {data,error}=await admin.storage.from('demand-files').createSignedUrl(version.storage_path,3600);
+    const {data,error}=await admin.storage.from('demand-files').createSignedUrl(version.storage_path,600);
     if(error||!data?.signedUrl)fail('Arquivo indisponível.',404);
     return data.signedUrl;
   }
