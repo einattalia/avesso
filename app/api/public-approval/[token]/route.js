@@ -66,7 +66,7 @@ export async function POST(_request,{params}){
     if(!['approve','changes'].includes(decision))fail('Escolha aprovar o material ou solicitar ajustes.');
     if(decision==='changes'&&(note.length<3||note.length>20000))fail('Descreva os ajustes necessários (de 3 a 20.000 caracteres).');
     if(result.alreadyResolved)return reply({status:result.status});
-    const selectedVersionId=typeof body.selectedVersionId==='string'?body.selectedVersionId:null;
+    const selectedVersionId=typeof body.selectedVersionId==='string'&&body.selectedVersionId.trim()?body.selectedVersionId:null;
     const {data,error}=await result.admin.rpc('avesso_review_public_link_v2',{token_digest:result.digest,decision,note,selected_version:selectedVersionId});
     if(error){
       console.error('AVESSO public approval transaction failed',{code:error.code});
