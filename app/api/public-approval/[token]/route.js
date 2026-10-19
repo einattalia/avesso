@@ -19,7 +19,7 @@ async function getApproval(token){
     admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption').eq('id',link.demand_version_id).eq('demand_id',link.demand_id).maybeSingle(),
     admin.from('clients').select('id,name').eq('id',link.client_id).maybeSingle(),
     admin.from('demand_versions').select('id').eq('demand_id',link.demand_id).order('version_number',{ascending:false}).limit(1).maybeSingle(),
-    link.approval_option_set_id?admin.from('approval_option_sets').select('id,state,selected_version_id,review_note').eq('id',link.approval_option_set_id).eq('demand_id',link.demand_id).maybeSingle():Promise.resolve({data:null,error:null})
+    link.approval_option_set_id?admin.from('approval_option_sets').select('id,state,selected_version_id,review_note,review_mode').eq('id',link.approval_option_set_id).eq('demand_id',link.demand_id).maybeSingle():Promise.resolve({data:null,error:null})
   ]);
   if(demandError||versionError||clientError||latestError||setError||!demand||!version||!client||!latest||demand.archived_at)fail('Este material não está disponível para aprovação.',404);
   let versions=[version];
@@ -29,7 +29,7 @@ async function getApproval(token){
     versions=groupVersions;
   }
   const reviewEvent=link.used_at?await admin.from('approval_events').select('note').eq('demand_version_id',version.id).eq('event',demand.status==='approved'?'approved':'changes_requested').is('user_id',null).order('created_at',{ascending:false}).limit(1).maybeSingle():{data:null,error:null};
-  const alreadyApproved=link.used_at&&demand.status==='approved'&&(optionSet?optionSet.state==='selected'&&versions.some(v=>v.id===optionSet.selected_version_id&&v.status==='approved'):version.status==='approved');
+  const alreadyApproved=link.used_at&&demand.status==='approved'&&(optionSet?optionSet.state==='selected'&&(optionSet.review_mode==='bundle'?versions.length>0&&versions.every(v=>v.status==='approved'):versions.some(v=>v.id===optionSet.selected_version_id&&v.status==='approved')):version.status==='approved');
   const alreadyRequestedChanges=link.used_at&&demand.status==='adjustments'&&(optionSet?optionSet.state==='changes_requested':version.status==='changes_requested');
   const alreadyResolved=alreadyApproved||alreadyRequestedChanges;
   if(!alreadyResolved&&(link.used_at||demand.status!=='with_client'||versions.some(v=>v.status!=='sent_for_review')||(!optionSet&&latest.id!==version.id)))fail('Esta versão não está mais aguardando aprovação.',410);
@@ -49,7 +49,7 @@ async function getApproval(token){
     fail('Arquivo indisponível.',404);
   }
   const options=await Promise.all(versions.map(async v=>({id:v.id,versionNumber:v.version_number,fileName:v.file_name,mimeType:v.mime_type,fileSize:v.file_size,caption:v.caption||'',fileUrl:await signedFile(v)})));
-  return {admin,digest,alreadyResolved,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',data:{clientName:client.name,title:demand.title,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,fileSize:version.file_size,caption:version.caption||'',fileUrl:await signedFile(version),options:optionSet?options:null,selectedVersionId:optionSet?.selected_version_id||null,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',reviewNote:optionSet?.review_note||reviewEvent.data?.note||''}};
+  return {admin,digest,alreadyResolved,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',data:{clientName:client.name,title:demand.title,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,fileSize:version.file_size,caption:version.caption||'',fileUrl:await signedFile(version),options:optionSet?options:null,reviewMode:optionSet?.review_mode||'options',selectedVersionId:optionSet?.selected_version_id||null,status:alreadyApproved?'approved':alreadyRequestedChanges?'changes_requested':'pending',reviewNote:optionSet?.review_note||reviewEvent.data?.note||''}};
 }
 
 export async function GET(_request,{params}){
