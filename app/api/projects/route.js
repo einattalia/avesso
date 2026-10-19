@@ -13,7 +13,7 @@ export async function POST(request){
   const {db,user}=await authenticate(request);
   const raw=await request.text();if(raw.length>50000)fail('Solicitação muito grande.',413);
   let b;try{b=JSON.parse(raw)}catch{fail('Solicitação inválida.');}
-  if(!b||!['list','create','update','delete','createArt','updateArt','deleteArt','moveArt'].includes(b.action))fail('Operação inválida.');
+  if(!b||!['list','create','update','delete','createArt','updateArt','deleteArt','moveArt','reorderArt'].includes(b.action))fail('Operação inválida.');
 
   let client=null,organizationId=b.organizationId;
   if(b.clientId){client=checked(await db.from('clients').select('id,organization_id').eq('id',b.clientId).maybeSingle());if(!client)fail('Cliente indisponível.',404);organizationId=client.organization_id;}
@@ -38,6 +38,17 @@ export async function POST(request){
   if(!projectId)fail('Projeto inválido.');
   const project=checked(await admin.from('production_projects').select('id,organization_id,client_id').eq('id',projectId).eq('organization_id',organizationId).maybeSingle());
   if(!project||client&&project.client_id!==client.id)fail('Projeto indisponível.',404);
+  if(b.action==='reorderArt'){
+   const ids=Array.isArray(b.demandIds)?b.demandIds:[];
+   const demandIds=[...new Set(ids)];
+   if(demandIds.length<1||demandIds.length>200||demandIds.length!==ids.length||demandIds.some(id=>typeof id!=='string'||id.length>64))fail('A ordem das artes é inválida.');
+   const group=checked(await admin.from('demands').select('id').eq('organization_id',organizationId).eq('client_id',project.client_id).eq('project_id',project.id).is('archived_at',null));
+   const expected=new Set((group||[]).map(row=>row.id));
+   if(demandIds.length!==expected.size||demandIds.some(id=>!expected.has(id)))fail('A lista de artes mudou. Atualize a página e tente novamente.',409);
+   const changed=checked(await admin.rpc('avesso_reorder_demands',{demand_ids:demandIds}));
+   if(changed!==demandIds.length)fail('Não foi possível salvar a ordem das artes.',409);
+   return Response.json({ordered:true},{headers});
+  }
   if(b.action==='update'){
    const title=clean(b.title,160);if(!title)fail('Dê um nome ao projeto.');
    const saved=checked(await admin.from('production_projects').update({title,description:clean(b.description,10000),updated_at:new Date().toISOString()}).eq('id',projectId).select('id,organization_id,client_id,title,description,created_at,updated_at').single());
