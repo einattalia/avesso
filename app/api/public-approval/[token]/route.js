@@ -68,7 +68,13 @@ export async function POST(_request,{params}){
     if(result.alreadyResolved)return reply({status:result.status});
     const selectedVersionId=typeof body.selectedVersionId==='string'?body.selectedVersionId:null;
     const {data,error}=await result.admin.rpc('avesso_review_public_link_v2',{token_digest:result.digest,decision,note,selected_version:selectedVersionId});
-    if(error){console.error('AVESSO public approval transaction failed',{code:error.code});fail('Esta versão não está mais aguardando aprovação.',409)}
+    if(error){
+      console.error('AVESSO public approval transaction failed',{code:error.code});
+      const reason=String(error.message||'');
+      if(/não está mais aguardando aprovação|Approval link unavailable/i.test(reason))fail('Esta versão foi substituída ou a aprovação já foi encerrada. Peça à equipe Avesso um novo link para o material atual.',409);
+      if(error.code==='PGRST202'||error.code==='42883')fail('O portal de aprovação precisa de uma atualização de configuração. Avise a equipe Avesso.',503);
+      fail('Não foi possível registrar sua decisão agora. Atualize a página e tente novamente; se o erro continuar, peça um novo link à equipe Avesso.',503);
+    }
     return reply({status:data||(decision==='approve'?'approved':'changes_requested')});
   }catch(e){if(!e.status)console.error('AVESSO public approval failed',{code:e.code||e.name});return reply({error:e.status?e.message:'Não foi possível registrar a aprovação.'},e.status||500)}
 }
