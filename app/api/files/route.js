@@ -23,6 +23,31 @@ export async function POST(request) {
   let operation='authenticate';
   try {
     const {db,user}=await authenticate(request);
+    if(request.headers.has('x-avesso-upload-id')) {
+      operation='proxy-part';
+      const id=request.headers.get('x-avesso-upload-id');
+      const partNumber=Number(request.headers.get('x-avesso-part-number'));
+      const scope=request.headers.get('x-avesso-upload-scope')||'demand';
+      if(!['demand','contract','briefing'].includes(scope)) fail('Área de arquivo inválida.');
+      if(Number(request.headers.get('content-length')||0)>4*1024*1024) fail('Esta parte excede o limite de envio pelo servidor.',413);
+      const isBriefing=scope==='briefing',isContract=scope==='contract';
+      const sessionTable=isBriefing?'briefing_upload_sessions':isContract?'contract_upload_sessions':'r2_upload_sessions';
+      const targetColumn=isBriefing?'client_id':isContract?'contract_id':'demand_id';
+      const access=isBriefing?briefingAccess:isContract?contractAccess:demandAccess;
+      const admin=adminDb();
+      const {data:s,error}=await admin.from(sessionTable).select('*').eq('id',id).eq('user_id',user.id).maybeSingle();
+      if(error||!s) fail('Envio indisponível.',404);
+      await access(db,user,s[targetColumn],true);
+      const {s3,bucket}=config();
+      if(s.bucket!==bucket) fail('O bucket deste envio foi alterado.',409);
+      if(s.state!=='pending'||Date.parse(s.expires_at)<=Date.now()) fail('Este envio expirou ou foi cancelado. Inicie novamente.',410);
+      if(!Number.isInteger(partNumber)||partNumber<1||partNumber>Math.ceil(s.file_size/s.part_size)) fail('Número de parte inválido.');
+      const expected=Math.min(Number(s.part_size),Number(s.file_size)-(partNumber-1)*Number(s.part_size));
+      const bytes=Buffer.from(await request.arrayBuffer());
+      if(bytes.length!==expected) fail('A parte enviada está incompleta. Selecione o arquivo novamente para retomar.',400);
+      await s3.send(new UploadPartCommand({Bucket:bucket,Key:s.object_key,UploadId:s.upload_id,PartNumber:partNumber,Body:bytes,ContentLength:bytes.length}));
+      return Response.json({uploaded:true},{headers});
+    }
     if (Number(request.headers.get('content-length')||0)>1048576) fail('Solicitação muito grande.',413);
     const raw=await request.text(); if(raw.length>262144) fail('Solicitação muito grande.',413);
     let b; try {b=JSON.parse(raw);} catch {fail('Solicitação inválida.');}
