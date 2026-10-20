@@ -72,6 +72,10 @@ export async function POST(request){
       return reply({plan,created:true});
     }
     const plan=await getPlan(admin,client,body.planId);
+    if(body.action==='deletePlan'){
+      checked(await admin.from('client_monthly_plans').delete().eq('id',plan.id).eq('client_id',client.id).eq('organization_id',client.organization_id));
+      return reply({deleted:true});
+    }
     if(body.action==='updateMonth'){
       const newMonth=validMonth(body.newMonth);
       if(monthFromDate(newMonth)===monthFromDate(plan.plan_month))return reply({plan,changed:false});
