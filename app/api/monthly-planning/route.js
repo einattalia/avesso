@@ -64,6 +64,14 @@ export async function POST(request){
       return reply({plan,created:true});
     }
     const plan=await getPlan(admin,client,body.planId);
+    if(body.action==='updateMonth'){
+      const newMonth=validMonth(body.newMonth);
+      if(monthFromDate(newMonth)===monthFromDate(plan.plan_month))return reply({plan,changed:false});
+      const conflict=checked(await admin.from('client_monthly_plans').select('id').eq('client_id',client.id).eq('plan_month',newMonth).neq('id',plan.id).maybeSingle());
+      if(conflict)fail('Já existe um planejamento para o mês escolhido.',409);
+      const updated=checked(await admin.from('client_monthly_plans').update({plan_month:newMonth,updated_at:new Date().toISOString()}).eq('id',plan.id).eq('client_id',client.id).eq('organization_id',client.organization_id).select('*').single());
+      return reply({plan:updated,changed:true});
+    }
     if(body.action==='saveItem'){
       if(body.itemId&&typeof body.itemId!=='string')fail('Item inválido.');
       const title=cleanText(body.title,200,'O título',true),description=cleanText(body.description||'',20000,'A descrição');
