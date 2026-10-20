@@ -49,12 +49,15 @@ function EvaluationForm({plan,onSubmit,busy,error}){
  </section>;
 }
 function MonthlyPlans({plans,clientName,notes,setNotes,working,respond,error,onEvaluate,evaluationWorking}){
+ const [selectedPlanId,setSelectedPlanId]=useState(null);
+ const selectedPlan=plans.find(plan=>plan.id===selectedPlanId)||null;
  return <section className="clientPortalContent portalPlans">
   {error&&<div className="portalActionError">{error}</div>}
-  {plans.length===0?<div className="portalEmpty"><h2>Nenhum planejamento compartilhado</h2><p>Quando a equipe Avesso compartilhar o planejamento do mês, ele ficará disponível aqui.</p></div>:plans.map(plan=>(
-   <article className="portalPlanCard" key={plan.id}>
-    <header className="portalPlanHeader"><div><small>PROPOSTA DE PLANEJAMENTO</small><h2>{monthTitle(plan.planMonth)}</h2><p>{plan.items.length} {plan.items.length===1?'ideia proposta':'ideias propostas'}</p></div><button type="button" className="portalDownloadButton" onClick={()=>downloadMonthlyPlanPdf({clientName,month:plan.planMonth.slice(0,7),items:plan.items})}>Baixar planejamento em PDF</button></header>
-    <div className="portalPlanItems">{plan.items.map((item,index)=>(
+  {!selectedPlan?plans.length===0?<div className="portalEmpty"><h2>Nenhum planejamento compartilhado</h2><p>Quando a equipe Avesso compartilhar o planejamento do mês, ele ficará disponível aqui.</p></div>:<div className="portalPlanMonthGrid">{plans.map(plan=><button type="button" className="portalPlanMonthFolder" key={plan.id} onClick={()=>setSelectedPlanId(plan.id)}><span className="portalPlanMonthFolderTop"><small>PASTA DO MÊS</small><span>Planejamento compartilhado</span></span><strong>{monthTitle(plan.planMonth)}</strong><span className="portalPlanMonthFolderCount">{plan.items.length} {plan.items.length===1?'ideia proposta':'ideias propostas'}</span><span className="portalPlanMonthFolderOpen">Abrir planejamento <b>→</b></span></button>)}</div>:<>
+   <button type="button" className="portalMonthlyBack" onClick={()=>setSelectedPlanId(null)}>← Todos os meses</button>
+   <article className="portalPlanCard" key={selectedPlan.id}>
+    <header className="portalPlanHeader"><div><small>PROPOSTA DE PLANEJAMENTO</small><h2>{monthTitle(selectedPlan.planMonth)}</h2><p>{selectedPlan.items.length} {selectedPlan.items.length===1?'ideia proposta':'ideias propostas'}</p></div><button type="button" className="portalDownloadButton" onClick={()=>downloadMonthlyPlanPdf({clientName,month:selectedPlan.planMonth.slice(0,7),items:selectedPlan.items})}>Baixar planejamento em PDF</button></header>
+    <div className="portalPlanItems">{selectedPlan.items.map((item,index)=>(
      <article className="portalPlanItem" key={item.id}>
       <div className="portalPlanItemHeading"><div><small>IDEIA {String(index+1).padStart(2,'0')}</small><h3>{item.title}</h3></div><span className={'portalPlanStatus status-'+item.status}>{itemStatus(item.status)}</span></div>
       {item.format&&<p className="portalPlanFormat">{item.format}</p>}
@@ -64,9 +67,9 @@ function MonthlyPlans({plans,clientName,notes,setNotes,working,respond,error,onE
       {['pending','changes_requested'].includes(item.status)&&<div className="portalPlanResponse"><label>O que você acha desta proposta? Deixe sua opinião ou sugestão.<textarea rows="3" value={notes[item.id]||''} onChange={event=>setNotes(old=>({...old,[item.id]:event.target.value}))} placeholder="Compartilhe sua opinião ou sugestão para este conteúdo."/></label><div className="portalPlanActions"><button type="button" className="portalAdjustButton" disabled={working===item.id} onClick={()=>respond(item,'changes')}>{working===item.id?'Enviando...':'Enviar sugestão'}</button><button type="button" className="portalApproveButton" disabled={working===item.id} onClick={()=>respond(item,'approve')}>{working===item.id?'Enviando...':'Aprovar proposta'}</button></div></div>}
      </article>
     ))}</div>
-    <EvaluationForm plan={plan} onSubmit={onEvaluate} busy={evaluationWorking===plan.id} error={error}/>
+    <EvaluationForm plan={selectedPlan} onSubmit={onEvaluate} busy={evaluationWorking===selectedPlan.id} error={error}/>
    </article>
-  ))}
+  </>}
  </section>;
 }
 export default function ClientPortal({token}){
