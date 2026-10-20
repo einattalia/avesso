@@ -44,6 +44,7 @@ export async function POST(request) {
       if(!Number.isInteger(partNumber)||partNumber<1||partNumber>Math.ceil(s.file_size/s.part_size)) fail('Número de parte inválido.');
       const expected=Math.min(Number(s.part_size),Number(s.file_size)-(partNumber-1)*Number(s.part_size));
       const bytes=Buffer.from(await request.arrayBuffer());
+      if(bytes.length>4*1024*1024) fail('Esta parte excede o limite de envio pelo servidor.',413);
       if(bytes.length!==expected) fail('A parte enviada está incompleta. Selecione o arquivo novamente para retomar.',400);
       await s3.send(new UploadPartCommand({Bucket:bucket,Key:s.object_key,UploadId:s.upload_id,PartNumber:partNumber,Body:bytes,ContentLength:bytes.length}));
       return Response.json({uploaded:true},{headers});
