@@ -156,7 +156,7 @@ export async function POST(request,{params}){
     if(!access||access.revoked_at)fail('Este link do portal é inválido ou foi revogado.',404);
     if(['approveArt','requestArtChanges'].includes(body.decision)){
       if(typeof body.demandId!=='string')fail('Arte inválida.');
-      if(body.decision==='approveArt'&&body.versionId!==null&&body.versionId!==undefined&&typeof body.versionId!=='string')fail('Opção de arte inválida.');
+      if(body.versionId!==null&&body.versionId!==undefined&&typeof body.versionId!=='string')fail('Opção de arte inválida.');
       const {data:decision,error:decisionError}=await admin.rpc('avesso_review_client_portal',{
         target_demand:body.demandId,
         portal_token_digest:digest,
