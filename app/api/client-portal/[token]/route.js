@@ -24,7 +24,7 @@ async function signedAsset(admin,demand,version){
   fail('Arquivo indisponível.',404);
 }
 
-export async function GET(_request,{params}){
+export async function GET(request,{params}){
   try{
     const {token}=await params;
     let digest;try{digest=hashClientPortalToken(token)}catch{fail('Este link do portal é inválido ou foi revogado.',404)}
@@ -36,6 +36,15 @@ export async function GET(_request,{params}){
     const {data:client,error:clientError}=await admin.from('clients').select('id,name,organization_id,photo_path').eq('id',access.client_id).eq('organization_id',access.organization_id).maybeSingle();
     if(clientError)throw clientError;
     if(!client)fail('Este portal não está disponível.',404);
+    const view=new URL(request.url).searchParams.get('view');
+    if(view==='notifications'){
+      const {data:activity,error}=await admin.from('production_activity')
+        .select('id,demand_id,to_status,created_at,demand:demands!inner(title,organization_id,client_id)')
+        .eq('demand.organization_id',client.organization_id).eq('demand.client_id',client.id)
+        .in('to_status',['with_client','approved','adjustments']).order('created_at',{ascending:false}).limit(50);
+      if(error)throw error;
+      return Response.json({events:(activity||[]).map(event=>({id:event.id,demandId:event.demand_id,status:event.to_status,createdAt:event.created_at,title:event.demand?.title||'Arte'}))},{headers});
+    }
 
     let clientLogoUrl=null;
     if(client.photo_path){
@@ -55,20 +64,26 @@ export async function GET(_request,{params}){
       for(const item of planItems||[]){const withNames={...item,designerName:teamById.get(item.designer_id)||null,videomakerName:teamById.get(item.videomaker_id)||null};const list=itemsByPlan.get(item.plan_id)||[];list.push(withNames);itemsByPlan.set(item.plan_id,list)}
       monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,status:plan.status,sharedAt:plan.shared_at,clientRating:plan.client_rating,clientFeedback:plan.client_feedback,clientFeedbackAt:plan.client_feedback_at,items:itemsByPlan.get(plan.id)||[]}));
     }
-    const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
+    const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['with_client','adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
     if(demandError)throw demandError;
     const ids=(demands||[]).map(d=>d.id);
-    if(!ids.length)return Response.json({clientName:client.name,clientLogoUrl,arts:[],monthlyPlans},{headers});
+    const {data:activity,error:activityError}=await admin.from('production_activity')
+      .select('id,demand_id,to_status,created_at,demand:demands!inner(title,organization_id,client_id)')
+      .eq('demand.organization_id',client.organization_id).eq('demand.client_id',client.id)
+      .in('to_status',['with_client','approved','adjustments']).order('created_at',{ascending:false}).limit(50);
+    if(activityError)throw activityError;
+    const notifications=(activity||[]).map(event=>({id:event.id,demandId:event.demand_id,status:event.to_status,createdAt:event.created_at,title:event.demand?.title||'Arte'}));
+    if(!ids.length)return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts:[],monthlyPlans,notifications},{headers});
     const [{data:versions,error:versionsError},{data:sets,error:setsError}]=await Promise.all([
-      admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption,approval_option_set_id,removed_at').in('demand_id',ids).in('status',['approved','changes_requested']).is('removed_at',null).order('version_number',{ascending:true}),
-      admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode,review_note,created_at').in('demand_id',ids).in('state',['selected','changes_requested']).order('created_at',{ascending:false})
+      admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption,approval_option_set_id,removed_at').in('demand_id',ids).in('status',['sent_for_review','approved','changes_requested']).is('removed_at',null).order('version_number',{ascending:true}),
+      admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode,review_note,created_at').in('demand_id',ids).in('state',['pending','selected','changes_requested']).order('created_at',{ascending:false})
     ]);
     if(versionsError||setsError)throw versionsError||setsError;
     const byDemand=new Map();
     for(const version of versions||[]){const list=byDemand.get(version.demand_id)||[];list.push(version);byDemand.set(version.demand_id,list)}
-    const selectedByDemand=new Map(),requestedByDemand=new Map();
+    const selectedByDemand=new Map(),requestedByDemand=new Map(),pendingByDemand=new Map();
     for(const set of sets||[]){
-      const target=set.state==='changes_requested'?requestedByDemand:selectedByDemand;
+      const target=set.state==='changes_requested'?requestedByDemand:set.state==='pending'?pendingByDemand:selectedByDemand;
       if(!target.has(set.demand_id))target.set(set.demand_id,set);
     }
     const requestedVersionIds=(versions||[]).filter(version=>version.status==='changes_requested').map(version=>version.id);
@@ -84,7 +99,17 @@ export async function GET(_request,{params}){
     for(const demand of demands||[]){
       const demandVersions=byDemand.get(demand.id)||[];
       let visible=[],reviewNote='';
-      if(demand.status==='adjustments'){
+      let reviewMode='options';
+      if(demand.status==='with_client'){
+        const pendingSet=pendingByDemand.get(demand.id);
+        const pendingVersions=demandVersions.filter(version=>version.status==='sent_for_review');
+        if(pendingSet){
+          reviewMode=pendingSet.review_mode||'options';
+          visible=pendingVersions.filter(version=>version.approval_option_set_id===pendingSet.id);
+        }else{
+          visible=pendingVersions.filter(version=>!version.approval_option_set_id).slice(-1);
+        }
+      }else if(demand.status==='adjustments'){
         const requestedSet=requestedByDemand.get(demand.id);
         const requestedVersions=demandVersions.filter(version=>version.status==='changes_requested');
         if(requestedSet){
@@ -107,9 +132,9 @@ export async function GET(_request,{params}){
       }
       if(!visible.length)continue;
       const assets=await Promise.all(visible.map(async version=>({id:version.id,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,caption:version.caption||'',fileUrl:await signedAsset(admin,demand,version)})));
-      arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
+      arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,reviewMode,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
     }
-    return Response.json({clientName:client.name,clientLogoUrl,arts,monthlyPlans},{headers});
+    return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts,monthlyPlans,notifications},{headers});
   }catch(error){
     if(!error.status)console.error('AVESSO client portal read failed',{code:error.code||error.name});
     return reply({error:error.status?error.message:'Não foi possível carregar o portal.'},error.status||500);
@@ -122,13 +147,26 @@ export async function POST(request,{params}){
     let digest;try{digest=hashClientPortalToken(token)}catch{fail('Este link do portal é inválido ou foi revogado.',404)}
     const raw=await request.text();if(raw.length>32768)fail('Solicitação muito grande.',413);
     let body;try{body=JSON.parse(raw)}catch{fail('Solicitação inválida.')}
-    if(!body||!['approve','changes','evaluate'].includes(body.decision))fail('Decisão inválida.');
+    if(!body||!['approve','changes','evaluate','approveArt','requestArtChanges'].includes(body.decision))fail('Decisão inválida.');
     const note=typeof body.note==='string'?body.note.trim():'';
-    if(body.decision==='changes'&&(note.length<3||note.length>20000))fail('Descreva os ajustes necessários (de 3 a 20.000 caracteres).');
+    if(['changes','requestArtChanges'].includes(body.decision)&&(note.length<3||note.length>20000))fail('Descreva os ajustes necessários (de 3 a 20.000 caracteres).');
     const admin=adminDb();
     const {data:access,error:accessError}=await admin.from('client_portal_tokens').select('client_id,organization_id,revoked_at').eq('token_hash',digest).maybeSingle();
     if(accessError)throw accessError;
     if(!access||access.revoked_at)fail('Este link do portal é inválido ou foi revogado.',404);
+    if(['approveArt','requestArtChanges'].includes(body.decision)){
+      if(typeof body.demandId!=='string')fail('Arte inválida.');
+      if(body.decision==='approveArt'&&body.versionId!==null&&body.versionId!==undefined&&typeof body.versionId!=='string')fail('Opção de arte inválida.');
+      const {data:decision,error:decisionError}=await admin.rpc('avesso_review_client_portal',{
+        target_demand:body.demandId,
+        portal_token_digest:digest,
+        decision:body.decision==='approveArt'?'approve':'changes',
+        note,
+        selected_version:body.versionId||null
+      });
+      if(decisionError){console.error('AVESSO client portal art decision failed',{code:decisionError.code});fail(decisionError.message||'Não foi possível registrar sua decisão.',409);}
+      return reply({status:decision});
+    }
     if(body.decision==='evaluate'){
       if(typeof body.planId!=='string')fail('Planejamento inválido.');
       if(!Number.isInteger(body.rating)||body.rating<1||body.rating>5)fail('Selecione uma nota de 1 a 5 estrelas.');
