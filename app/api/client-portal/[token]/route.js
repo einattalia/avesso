@@ -33,10 +33,14 @@ export async function GET(_request,{params}){
     if(accessError)throw accessError;
     if(!access||access.revoked_at)fail('Este link do portal é inválido ou foi revogado.',404);
 
-    const {data:client,error:clientError}=await admin.from('clients').select('id,name,organization_id').eq('id',access.client_id).eq('organization_id',access.organization_id).maybeSingle();
+    const {data:client,error:clientError}=await admin.from('clients').select('id,name,organization_id,photo_path').eq('id',access.client_id).eq('organization_id',access.organization_id).maybeSingle();
     if(clientError)throw clientError;
     if(!client)fail('Este portal não está disponível.',404);
 
+    let clientLogoUrl=null;
+    if(client.photo_path){
+      try{const {data:logo}=await admin.storage.from('avesso-profile-images').createSignedUrl(client.photo_path,3600);clientLogoUrl=logo?.signedUrl||null}catch{}
+    }
     const {data:plans,error:plansError}=await admin.from('client_monthly_plans').select('id,plan_month,status,shared_at,client_rating,client_feedback,client_feedback_at').eq('organization_id',client.organization_id).eq('client_id',client.id).eq('status','shared').order('plan_month',{ascending:false});
     if(plansError)throw plansError;
     const planIds=(plans||[]).map(plan=>plan.id);
@@ -54,7 +58,7 @@ export async function GET(_request,{params}){
     const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
     if(demandError)throw demandError;
     const ids=(demands||[]).map(d=>d.id);
-    if(!ids.length)return Response.json({clientName:client.name,arts:[],monthlyPlans},{headers});
+    if(!ids.length)return Response.json({clientName:client.name,clientLogoUrl,arts:[],monthlyPlans},{headers});
     const [{data:versions,error:versionsError},{data:sets,error:setsError}]=await Promise.all([
       admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption,approval_option_set_id,removed_at').in('demand_id',ids).in('status',['approved','changes_requested']).is('removed_at',null).order('version_number',{ascending:true}),
       admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode,review_note,created_at').in('demand_id',ids).in('state',['selected','changes_requested']).order('created_at',{ascending:false})
@@ -105,7 +109,7 @@ export async function GET(_request,{params}){
       const assets=await Promise.all(visible.map(async version=>({id:version.id,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,caption:version.caption||'',fileUrl:await signedAsset(admin,demand,version)})));
       arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
     }
-    return Response.json({clientName:client.name,arts,monthlyPlans},{headers});
+    return Response.json({clientName:client.name,clientLogoUrl,arts,monthlyPlans},{headers});
   }catch(error){
     if(!error.status)console.error('AVESSO client portal read failed',{code:error.code||error.name});
     return reply({error:error.status?error.message:'Não foi possível carregar o portal.'},error.status||500);
