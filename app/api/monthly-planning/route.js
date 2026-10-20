@@ -19,7 +19,7 @@ const validMonth=value=>{
   return `${value}-01`;
 };
 const monthFromDate=value=>String(value||'').slice(0,7);
-const snapshotOf=item=>({title:item.title,description:item.description,format:item.format||null,scheduled_date:item.scheduled_date||null});
+const snapshotOf=item=>({title:item.title,description:item.description,format:item.format||null,designer_id:item.designer_id||null,videomaker_id:item.videomaker_id||null});
 
 async function agencyForClient(request,clientId){
   if(typeof clientId!=='string')fail('Cliente inválido.');
@@ -68,14 +68,19 @@ export async function POST(request){
       if(body.itemId&&typeof body.itemId!=='string')fail('Item inválido.');
       const title=cleanText(body.title,200,'O título',true),description=cleanText(body.description||'',20000,'A descrição');
       const format=body.format?cleanText(body.format,80,'O formato'):null;
-      const scheduledDate=body.scheduledDate||null;
+      const designerId=body.designerId||null,videomakerId=body.videomakerId||null;
+      if(designerId!==null&&typeof designerId!=='string')fail('Designer inválido.');
+      if(videomakerId!==null&&typeof videomakerId!=='string')fail('Videomaker inválido.');
+      const assignments=[];if(designerId)assignments.push({id:designerId,role:'designer',label:'Designer'});if(videomakerId)assignments.push({id:videomakerId,role:'videomaker',label:'Videomaker'});
+      if(assignments.length){const ids=assignments.map(person=>person.id);const team=checked(await admin.from('agency_team_members').select('id,role').eq('organization_id',client.organization_id).in('id',ids));for(const person of assignments)if(!team.some(member=>member.id===person.id&&member.role===person.role))fail(`${person.label} indisponível nesta organização.`,403)}
+      const scheduledDate=null;
       if(scheduledDate&&!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate))fail('Data inválida.');
       let old=null;
       if(body.itemId){old=checked(await admin.from('client_monthly_plan_items').select('*').eq('id',body.itemId).eq('plan_id',plan.id).eq('client_id',client.id).is('removed_at',null).maybeSingle());if(!old)fail('Arte indisponível.',404)}
-      const changed=!old||old.title!==title||old.description!==description||old.format!==(format||null)||old.scheduled_date!==(scheduledDate||null);
+      const changed=!old||old.title!==title||old.description!==description||old.format!==(format||null)||old.designer_id!==(designerId||null)||old.videomaker_id!==(videomakerId||null);
       const status=!old?(plan.status==='shared'?'pending':'draft'):changed&&plan.status==='shared'?'pending':old.status;
       const reviewNote=changed&&plan.status==='shared'?null:old?.review_note||null;
-      const row={plan_id:plan.id,organization_id:client.organization_id,client_id:client.id,title,description,format,scheduled_date:scheduledDate,position:old?.position??(Number(body.position)||0),status,review_note:reviewNote,responded_at:changed&&plan.status==='shared'?null:old?.responded_at||null,updated_at:new Date().toISOString()};
+      const row={plan_id:plan.id,organization_id:client.organization_id,client_id:client.id,title,description,format,scheduled_date:scheduledDate,designer_id:designerId,videomaker_id:videomakerId,position:old?.position??(Number(body.position)||0),status,review_note:reviewNote,responded_at:changed&&plan.status==='shared'?null:old?.responded_at||null,updated_at:new Date().toISOString()};
       const saved=checked(old?await admin.from('client_monthly_plan_items').update(row).eq('id',old.id).select('*').single():await admin.from('client_monthly_plan_items').insert(row).select('*').single());
       await logEvents(admin,plan,[saved],old?'edited':'created',actorName,old&&changed&&old.status==='changes_requested'?'A equipe atualizou a arte após o pedido de ajuste.':'');
       return reply({item:saved});
