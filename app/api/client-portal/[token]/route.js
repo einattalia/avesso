@@ -42,10 +42,13 @@ export async function GET(_request,{params}){
     const planIds=(plans||[]).map(plan=>plan.id);
     let monthlyPlans=[];
     if(planIds.length){
-      const {data:planItems,error:itemsError}=await admin.from('client_monthly_plan_items').select('id,plan_id,position,title,description,format,scheduled_date,status,review_note,responded_at').in('plan_id',planIds).is('removed_at',null).order('position',{ascending:true});
+      const {data:planItems,error:itemsError}=await admin.from('client_monthly_plan_items').select('id,plan_id,position,title,description,format,designer_id,videomaker_id,scheduled_date,status,review_note,responded_at').in('plan_id',planIds).is('removed_at',null).order('position',{ascending:true});
       if(itemsError)throw itemsError;
+      const teamIds=[...new Set((planItems||[]).flatMap(item=>[item.designer_id,item.videomaker_id]).filter(Boolean))];
+      let teamById=new Map();
+      if(teamIds.length){const {data:team,error:teamError}=await admin.from('agency_team_members').select('id,name').eq('organization_id',client.organization_id).in('id',teamIds);if(teamError)throw teamError;teamById=new Map((team||[]).map(person=>[person.id,person.name]))}
       const itemsByPlan=new Map();
-      for(const item of planItems||[]){const list=itemsByPlan.get(item.plan_id)||[];list.push(item);itemsByPlan.set(item.plan_id,list)}
+      for(const item of planItems||[]){const withNames={...item,designerName:teamById.get(item.designer_id)||null,videomakerName:teamById.get(item.videomaker_id)||null};const list=itemsByPlan.get(item.plan_id)||[];list.push(withNames);itemsByPlan.set(item.plan_id,list)}
       monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,status:plan.status,sharedAt:plan.shared_at,items:itemsByPlan.get(plan.id)||[]}));
     }
     const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
@@ -122,7 +125,7 @@ export async function POST(request,{params}){
     const {data:access,error:accessError}=await admin.from('client_portal_tokens').select('client_id,organization_id,revoked_at').eq('token_hash',digest).maybeSingle();
     if(accessError)throw accessError;
     if(!access||access.revoked_at)fail('Este link do portal é inválido ou foi revogado.',404);
-    const {data:item,error:itemError}=await admin.from('client_monthly_plan_items').select('id,plan_id,client_id,organization_id,title,description,format,scheduled_date,status,review_note,removed_at').eq('id',body.itemId).eq('client_id',access.client_id).eq('organization_id',access.organization_id).is('removed_at',null).maybeSingle();
+    const {data:item,error:itemError}=await admin.from('client_monthly_plan_items').select('id,plan_id,client_id,organization_id,title,description,format,designer_id,videomaker_id,scheduled_date,status,review_note,removed_at').eq('id',body.itemId).eq('client_id',access.client_id).eq('organization_id',access.organization_id).is('removed_at',null).maybeSingle();
     if(itemError)throw itemError;
     if(!item)fail('Este conteúdo não está disponível para o cliente.',404);
     const {data:plan,error:planError}=await admin.from('client_monthly_plans').select('id,status,plan_month').eq('id',item.plan_id).eq('client_id',access.client_id).eq('organization_id',access.organization_id).maybeSingle();
