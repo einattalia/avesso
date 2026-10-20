@@ -49,6 +49,14 @@ export async function POST(request){
     let body;try{body=JSON.parse(raw)}catch{fail('Solicitação inválida.')}
     const {admin,user,client}=await agencyForClient(request,body.clientId);
     const actorName=(user.email||'Equipe Avesso').slice(0,160);
+    if(body.action==='listPlans'){
+      const plans=checked(await admin.from('client_monthly_plans').select('id,plan_month,status,updated_at,shared_at').eq('client_id',client.id).eq('organization_id',client.organization_id).order('plan_month',{ascending:false}));
+      const ids=plans.map(plan=>plan.id);
+      const items=ids.length?checked(await admin.from('client_monthly_plan_items').select('plan_id,status').in('plan_id',ids).is('removed_at',null)):[];
+      const counts=new Map();
+      for(const item of items){const count=counts.get(item.plan_id)||{total:0,pending:0,approved:0,changes:0};count.total++;if(item.status==='pending')count.pending++;if(item.status==='approved')count.approved++;if(item.status==='changes_requested')count.changes++;counts.set(item.plan_id,count)}
+      return reply({plans:plans.map(plan=>({...plan,ideaCounts:counts.get(plan.id)||{total:0,pending:0,approved:0,changes:0}}))});
+    }
     if(body.action==='load'){
       const plan=checked(await admin.from('client_monthly_plans').select('*').eq('client_id',client.id).eq('organization_id',client.organization_id).eq('plan_month',validMonth(body.month)).maybeSingle());
       if(!plan)return reply({plan:null,items:[],events:[]});
