@@ -61,15 +61,21 @@ export async function POST(request) {
     if(b.action==='sendOptions'){
       if(!agency)fail('Somente a equipe pode enviar opções de arte.',403);
       const ids=[...new Set(Array.isArray(b.versionIds)?b.versionIds:[])];
-      if(ids.length<2||ids.length>8||ids.some(id=>typeof id!=='string'||id.length>64))fail('Selecione de 2 a 8 versões para enviar ao cliente.');
-      const token=createApprovalToken(),expiresAt=new Date(Date.now()+14*86400000).toISOString();
+      if(ids.length<1||ids.length>8||ids.some(id=>typeof id!=='string'||id.length>64))fail('Selecione de 1 a 8 versões para enviar ao cliente.');
       const {data:demandType,error:typeError}=await admin.from('demands').select('type').eq('id',b.demandId).maybeSingle();
       if(typeError||!demandType)fail('Não foi possível identificar o formato desta arte.',409);
-      const rpcName=demandType.type==='Carrossel'?'avesso_send_approval_bundle':'avesso_send_approval_options';
-      const {data,error}=await admin.rpc(rpcName,{target_demand:b.demandId,target_versions:ids,actor_id:user.id,token_digest:hashApprovalToken(token),encrypted_value:encryptApprovalToken(token,process.env.SUPABASE_SERVICE_ROLE_KEY),link_expires_at:expiresAt});
-      if(error){console.error('AVESSO option review transaction failed',{code:error.code});fail('Não foi possível enviar as opções. Confira se o SQL de opções de aprovação foi executado.',409)}
-      let notice=null;try{notice=await dispatchApproval(admin,b.demandId,token)}catch{notice={state:'failed',message:'Opções publicadas; não foi possível enviar o aviso pelo WhatsApp.'}}
-      return Response.json({status:data||'with_client',url:approvalUrl(process.env.APP_URL||new URL(request.url).origin,token),notice},{headers});
+      const {data,error}=await admin.rpc('avesso_send_client_portal',{target_demand:b.demandId,target_versions:ids,actor_id:user.id,review_mode:demandType.type==='Carrossel'?'bundle':'options'});
+      if(error){console.error('AVESSO client portal send transaction failed',{code:error.code});fail('Não foi possível enviar as artes ao Portal do Cliente.',409)}
+      return Response.json({status:data||'with_client',notice:{message:'Arte enviada ao Portal do Cliente e aguardando aprovação.'}},{headers});
+    }
+    if(b.action==='send'){
+      if(!agency)fail('Somente a equipe pode enviar artes para aprovação.',403);
+      if(typeof b.versionId!=='string')fail('Selecione uma versão para enviar ao cliente.');
+      const {data:demandType,error:typeError}=await admin.from('demands').select('type').eq('id',b.demandId).maybeSingle();
+      if(typeError||!demandType)fail('Não foi possível identificar o formato desta arte.',409);
+      const {data,error}=await admin.rpc('avesso_send_client_portal',{target_demand:b.demandId,target_versions:[b.versionId],actor_id:user.id,review_mode:demandType.type==='Carrossel'?'bundle':'options'});
+      if(error){console.error('AVESSO client portal send transaction failed',{code:error.code});fail('Não foi possível enviar a arte ao Portal do Cliente.',409)}
+      return Response.json({status:data||'with_client',notice:{message:'Arte enviada ao Portal do Cliente e aguardando aprovação.'}},{headers});
     }
     if(['approve','changes'].includes(b.action)&&agency)fail('A decisão deve ser registrada pelo cliente no portal.',403);
     if(b.action==='changes'&&(!b.note?.trim()||b.note.length>20000))fail('Descreva os ajustes necessários (até 20.000 caracteres).');
