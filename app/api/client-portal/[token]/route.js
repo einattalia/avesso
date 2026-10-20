@@ -37,10 +37,21 @@ export async function GET(_request,{params}){
     if(clientError)throw clientError;
     if(!client)fail('Este portal não está disponível.',404);
 
+    const {data:plans,error:plansError}=await admin.from('client_monthly_plans').select('id,plan_month,status,shared_at').eq('organization_id',client.organization_id).eq('client_id',client.id).eq('status','shared').order('plan_month',{ascending:false});
+    if(plansError)throw plansError;
+    const planIds=(plans||[]).map(plan=>plan.id);
+    let monthlyPlans=[];
+    if(planIds.length){
+      const {data:planItems,error:itemsError}=await admin.from('client_monthly_plan_items').select('id,plan_id,position,title,description,format,scheduled_date,status,review_note,responded_at').in('plan_id',planIds).is('removed_at',null).order('position',{ascending:true});
+      if(itemsError)throw itemsError;
+      const itemsByPlan=new Map();
+      for(const item of planItems||[]){const list=itemsByPlan.get(item.plan_id)||[];list.push(item);itemsByPlan.set(item.plan_id,list)}
+      monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,status:plan.status,sharedAt:plan.shared_at,items:itemsByPlan.get(plan.id)||[]}));
+    }
     const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
     if(demandError)throw demandError;
     const ids=(demands||[]).map(d=>d.id);
-    if(!ids.length)return Response.json({clientName:client.name,arts:[]},{headers});
+    if(!ids.length)return Response.json({clientName:client.name,arts:[],monthlyPlans},{headers});
     const [{data:versions,error:versionsError},{data:sets,error:setsError}]=await Promise.all([
       admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption,approval_option_set_id,removed_at').in('demand_id',ids).in('status',['approved','changes_requested']).is('removed_at',null).order('version_number',{ascending:true}),
       admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode,review_note,created_at').in('demand_id',ids).in('state',['selected','changes_requested']).order('created_at',{ascending:false})
@@ -91,9 +102,43 @@ export async function GET(_request,{params}){
       const assets=await Promise.all(visible.map(async version=>({id:version.id,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,caption:version.caption||'',fileUrl:await signedAsset(admin,demand,version)})));
       arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
     }
-    return Response.json({clientName:client.name,arts},{headers});
+    return Response.json({clientName:client.name,arts,monthlyPlans},{headers});
   }catch(error){
     if(!error.status)console.error('AVESSO client portal read failed',{code:error.code||error.name});
     return reply({error:error.status?error.message:'Não foi possível carregar o portal.'},error.status||500);
+  }
+}
+
+export async function POST(request,{params}){
+  try{
+    const {token}=await params;
+    let digest;try{digest=hashClientPortalToken(token)}catch{fail('Este link do portal é inválido ou foi revogado.',404)}
+    const raw=await request.text();if(raw.length>32768)fail('Solicitação muito grande.',413);
+    let body;try{body=JSON.parse(raw)}catch{fail('Solicitação inválida.')}
+    if(!body||!['approve','changes'].includes(body.decision)||typeof body.itemId!=='string')fail('Decisão inválida.');
+    const note=typeof body.note==='string'?body.note.trim():'';
+    if(body.decision==='changes'&&(note.length<3||note.length>20000))fail('Descreva os ajustes necessários (de 3 a 20.000 caracteres).');
+    const admin=adminDb();
+    const {data:access,error:accessError}=await admin.from('client_portal_tokens').select('client_id,organization_id,revoked_at').eq('token_hash',digest).maybeSingle();
+    if(accessError)throw accessError;
+    if(!access||access.revoked_at)fail('Este link do portal é inválido ou foi revogado.',404);
+    const {data:item,error:itemError}=await admin.from('client_monthly_plan_items').select('id,plan_id,client_id,organization_id,title,description,format,scheduled_date,status,review_note,removed_at').eq('id',body.itemId).eq('client_id',access.client_id).eq('organization_id',access.organization_id).is('removed_at',null).maybeSingle();
+    if(itemError)throw itemError;
+    if(!item)fail('Este conteúdo não está disponível para o cliente.',404);
+    const {data:plan,error:planError}=await admin.from('client_monthly_plans').select('id,status,plan_month').eq('id',item.plan_id).eq('client_id',access.client_id).eq('organization_id',access.organization_id).maybeSingle();
+    if(planError)throw planError;
+    if(!plan||plan.status!=='shared')fail('Este planejamento não está mais aguardando retorno.',409);
+    if(!['pending','changes_requested'].includes(item.status))fail('Esta arte já foi aprovada ou atualizada pela equipe.',409);
+    const now=new Date().toISOString(),nextStatus=body.decision==='approve'?'approved':'changes_requested';
+    const {data:updated,error:updateError}=await admin.from('client_monthly_plan_items').update({status:nextStatus,review_note:nextStatus==='changes_requested'?note:null,responded_at:now,updated_at:now}).eq('id',item.id).eq('status',item.status).select('id').maybeSingle();
+    if(updateError)throw updateError;
+    if(!updated)fail('Esta arte acabou de ser atualizada. Recarregue a página e tente novamente.',409);
+    const event={plan_id:plan.id,item_id:item.id,organization_id:access.organization_id,client_id:access.client_id,actor_type:'client',event:nextStatus,actor_name:'Cliente',note:nextStatus==='changes_requested'?note:null,snapshot:{title:item.title,description:item.description,format:item.format||null,scheduled_date:item.scheduled_date||null}};
+    const {error:eventError}=await admin.from('client_monthly_plan_item_events').insert(event);
+    if(eventError)throw eventError;
+    return reply({status:nextStatus});
+  }catch(error){
+    if(!error.status)console.error('AVESSO client monthly plan decision failed',{code:error.code||error.name});
+    return reply({error:error.status?error.message:'Não foi possível registrar sua resposta.'},error.status||500);
   }
 }
