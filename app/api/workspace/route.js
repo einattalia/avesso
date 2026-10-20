@@ -24,9 +24,10 @@ export async function POST(request){try{
   if(client)q=q.eq('client_id',client.id);
   const rows=checked(await q);
   const demandIds=rows.map(d=>d.id);
-  const optionSets=demandIds.length?checked(await admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode').in('demand_id',demandIds).in('state',['selected','pending'])):[];
+  const optionSets=demandIds.length?checked(await admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode').in('demand_id',demandIds).in('state',['selected','pending','changes_requested'])):[];
   const selectedByDemand=new Map(optionSets.filter(set=>set.state==='selected').map(set=>[set.demand_id,set.selected_version_id]));
   const reviewModeByDemand=new Map(optionSets.filter(set=>set.state==='pending').map(set=>[set.demand_id,set.review_mode]));
+  const activeReviewByDemand=new Map(optionSets.filter(set=>['pending','changes_requested'].includes(set.state)).map(set=>[set.demand_id,set]));
   const versionRows=rows.flatMap(d=>(d.demand_versions||[]).map(v=>({...v,demand_id:v.demand_id||d.id})));
   const versionById=new Map(versionRows.map(v=>[v.id,v]));
   const versionIds=versionRows.map(v=>v.id);
@@ -49,7 +50,7 @@ export async function POST(request){try{
   if(client)projectsQuery=projectsQuery.eq('client_id',client.id);
   const projects=checked(await projectsQuery);
   const byId=new Map(projects.map(p=>[p.id,p]));
-  return Response.json({items:rows.map(d=>({...d,reviewNotes:reviewsByDemand.get(d.id)||[],selected_version_id:['approved','delivered'].includes(d.status)?selectedByDemand.get(d.id)||null:null,review_mode:reviewModeByDemand.get(d.id)||null,project:byId.get(d.project_id)||null,demand_versions:(d.demand_versions||[]).filter(v=>agency||['sent_for_review','approved','changes_requested','delivered'].includes(v.status))})).filter(d=>agency||d.demand_versions.length),projects,agency},{headers});
+  return Response.json({items:rows.map(d=>{const reviewSet=activeReviewByDemand.get(d.id);return {...d,reviewNotes:reviewsByDemand.get(d.id)||[],selected_version_id:['approved','delivered'].includes(d.status)?selectedByDemand.get(d.id)||null:null,review_mode:reviewModeByDemand.get(d.id)||null,review_option_set_id:reviewSet?.id||null,review_version_id:reviewSet?.state==='changes_requested'?reviewSet.selected_version_id||null:null,project:byId.get(d.project_id)||null,demand_versions:(d.demand_versions||[]).filter(v=>agency||['sent_for_review','approved','changes_requested','delivered'].includes(v.status))}}).filter(d=>agency||d.demand_versions.length),projects,agency},{headers});
  }
  if(b.action==='scheduleContent'){
   staff();const {d}=await demandAccess(db,user,b.demandId,true);if(d.organization_id!==orgId)fail('Sem acesso.',403);
