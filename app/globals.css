@@ -117,3 +117,5 @@
 .portalApproveButton{border-color:#2e5547;background:#2e5547;color:#fff}
 .portalAdjustButton:disabled,.portalApproveButton:disabled{opacity:.55;cursor:default}
 @media(max-width:560px){.notificationBellPanel{right:-52px}.portalArtDecision>div{justify-content:stretch}.portalArtDecision>div button{flex:1}}
+
+.revisionUploadPanel{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 0 18px;padding:18px 20px;border:1px solid #dfd5a8;border-radius:14px;background:#fffdf3}.revisionUploadPanel>div{min-width:0}.revisionUploadPanel small{font-size:10px;letter-spacing:.08em;font-weight:800;color:#826d00}.revisionUploadPanel h3{margin:6px 0;font-size:16px}.revisionUploadPanel p{margin:0;color:#68655c;font-size:13px;line-height:1.5}.revisionUploadPanel .uploadBtn{flex:none;min-height:42px;display:inline-flex;align-items:center;gap:8px}@media(max-width:700px){.revisionUploadPanel{align-items:stretch;flex-direction:column}.revisionUploadPanel .uploadBtn{justify-content:center}}
