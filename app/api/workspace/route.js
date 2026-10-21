@@ -20,7 +20,7 @@ export async function POST(request){try{
  const {client,orgId,agency}=await access(db,user,b.clientId,b.organizationId);const admin=adminDb();
  const staff=()=>{if(!agency)fail('Ação disponível para a equipe.',403)};
  if(b.action==='contents'){
-  let q=admin.from('demands').select('id,client_id,organization_id,project_id,title,type,status,due_date,publish_date,approved_at,created_at,reference_id,'+(agency?'briefing,notes,responsible_name,':'')+'clients(name),demand_versions(id,demand_id,version_number,status,file_name,mime_type,file_size,caption,created_at)').eq('organization_id',orgId).is('archived_at',null).order('created_at',{ascending:false});
+  let q=admin.from('demands').select('id,client_id,organization_id,project_id,title,type,status,due_date,publish_date,approved_at,created_at,sort_order,reference_id,'+(agency?'briefing,notes,responsible_name,':'')+'clients(name),demand_versions(id,demand_id,version_number,status,file_name,mime_type,file_size,caption,created_at)').eq('organization_id',orgId).is('archived_at',null).order('sort_order',{ascending:true}).order('created_at',{ascending:false});
   if(client)q=q.eq('client_id',client.id);
   const rows=checked(await q);
   let projectsQuery=admin.from('production_projects').select('id,client_id,title,description').eq('organization_id',orgId).is('archived_at',null);
