@@ -13,7 +13,7 @@ export async function POST(request){
   const {db,user}=await authenticate(request);
   const raw=await request.text();if(raw.length>50000)fail('Solicitação muito grande.',413);
   let b;try{b=JSON.parse(raw)}catch{fail('Solicitação inválida.');}
-  if(!b||!['list','create','update','delete','createArt','updateArt','deleteArt','moveArt'].includes(b.action))fail('Operação inválida.');
+  if(!b||!['list','create','update','delete','createArt','updateArt','deleteArt','moveArt','reorderArt'].includes(b.action))fail('Operação inválida.');
 
   let client=null,organizationId=b.organizationId;
   if(b.clientId){client=checked(await db.from('clients').select('id,organization_id').eq('id',b.clientId).maybeSingle());if(!client)fail('Cliente indisponível.',404);organizationId=client.organization_id;}
@@ -33,6 +33,24 @@ export async function POST(request){
    if(!targetClient)fail('Selecione um cliente válido.');
    const project=checked(await admin.from('production_projects').insert({organization_id:organizationId,client_id:targetClient.id,title,description:clean(b.description,10000),created_by:user.id}).select('id,organization_id,client_id,title,description,created_at,updated_at').single());
    return Response.json({project},{status:201,headers});
+  }
+  if(b.action==='reorderArt'){
+   const ids=b.demandIds;
+   if(!Array.isArray(ids)||ids.length<1||ids.length>300||ids.some(id=>typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))||new Set(ids).size!==ids.length)fail('Lista de cards inválida.');
+   const projectId=b.projectId||null;
+   if(projectId){
+    const project=checked(await admin.from('production_projects').select('id,organization_id,client_id').eq('id',projectId).eq('organization_id',organizationId).maybeSingle());
+    if(!project||client&&project.client_id!==client.id)fail('Projeto indisponível.',404);
+    if(b.clientId&&b.clientId!==project.client_id)fail('Cliente inválido.',403);
+   }else if(!client)fail('Selecione um cliente para ordenar os cards sem projeto.');
+   let q=admin.from('demands').select('id').eq('organization_id',organizationId).is('archived_at',null);
+   q=projectId?q.eq('project_id',projectId):q.is('project_id',null).eq('client_id',client.id);
+   if(projectId&&client)q=q.eq('client_id',client.id);
+   const current=checked(await q);
+   if(current.length!==ids.length||current.some(row=>!ids.includes(row.id)))fail('A lista de cards mudou. Atualize a página e tente novamente.',409);
+   const saved=checked(await admin.rpc('avesso_reorder_demands',{demand_ids:ids}));
+   if(Number(saved)!==ids.length)fail('Não foi possível salvar a ordem dos cards.');
+   return Response.json({saved:true},{headers});
   }
   const projectId=b.projectId;
   if(!projectId)fail('Projeto inválido.');
