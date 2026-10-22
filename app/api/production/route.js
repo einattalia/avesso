@@ -73,6 +73,7 @@ export async function POST(request) {
       if(typeof b.versionId!=='string')fail('Selecione uma versão para enviar ao cliente.');
       const {data:demandType,error:typeError}=await admin.from('demands').select('type').eq('id',b.demandId).maybeSingle();
       if(typeError||!demandType)fail('Não foi possível identificar o formato desta arte.',409);
+      if(demandType.type==='Carrossel')fail('Selecione as imagens no painel do carrossel para enviá-las juntas.');
       const {data,error}=await admin.rpc('avesso_send_client_portal',{target_demand:b.demandId,target_versions:[b.versionId],actor_id:user.id,review_mode:demandType.type==='Carrossel'?'bundle':'options'});
       if(error){console.error('AVESSO client portal send transaction failed',{code:error.code});fail('Não foi possível enviar a arte ao Portal do Cliente.',409)}
       return Response.json({status:data||'with_client',notice:{message:'Arte enviada ao Portal do Cliente e aguardando aprovação.'}},{headers});
