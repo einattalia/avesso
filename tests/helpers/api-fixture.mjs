@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {createCipheriv,createDecipheriv,createHash,randomBytes,randomUUID} from 'node:crypto';
 import {encryptApprovalToken,hashApprovalToken} from '../../lib/approval-token.mjs';
 // Load the actual route and authorization code, replacing only external services.
-export async function fixture({routeName="files",member=true,client=false,token=true,parts,object,completed=false,legacy=false,rpcError=false,r2Error=null,r2ErrorAt=null}={}) {
+export async function fixture({routeName="files",member=true,client=false,token=true,parts,object,completed=false,legacy=false,rpcError=false,r2Error=null,r2ErrorAt=null,aiKey,aiFetch}={}) {
   const calls=[];
   const serviceKey='s'.repeat(64),storedToken='b'.repeat(64);
   const s={id:'session',user_id:'user',demand_id:'demand',object_key:'trusted/key',bucket:'bucket',upload_id:'multipart',file_name:'v.mp4',file_size:7,mime_type:'video/mp4',fingerprint:'a'.repeat(64),part_size:64*1024*1024,state:completed?'completed':'pending',version_number:completed?1:null,expires_at:new Date(Date.now()+86400000).toISOString()};
@@ -26,7 +26,7 @@ export async function fixture({routeName="files",member=true,client=false,token=
   const aws=Object.fromEntries(commandNames.map(name=>[name,class {constructor(input){this.name=name;this.input=input;}}]));
   let currentObject=object;
   aws.S3Client=class {async send(command){calls.push(command);if(r2Error&&(!r2ErrorAt||r2ErrorAt===command.name))throw r2Error;switch(command.name){case 'CreateMultipartUploadCommand':return {UploadId:'new-upload'};case 'ListPartsCommand':return {Parts:parts||[{PartNumber:1,ETag:'tag',Size:7}]};case 'HeadObjectCommand':if(currentObject)return currentObject;throw {$metadata:{httpStatusCode:404}};case 'CompleteMultipartUploadCommand':currentObject={ContentLength:7,ContentType:(command.input.Key.startsWith('contracts/')||command.input.Key.startsWith('briefing/'))?'application/pdf':'video/mp4'};return {};default:return {};}}};
-  const context=vm.createContext({Request,Response,console:{error(){}},process:{env:{NEXT_PUBLIC_SUPABASE_URL:'https://supabase.test',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:serviceKey,R2_ACCOUNT_ID:'0123456789abcdef0123456789abcdef',R2_ACCESS_KEY_ID:'access',R2_SECRET_ACCESS_KEY:'secret',R2_BUCKET_NAME:'bucket'}},Date,URL,Buffer});
+  const context=vm.createContext({Request,Response,console:{error(){}},process:{env:{OPENAI_API_KEY:aiKey,NEXT_PUBLIC_SUPABASE_URL:'https://supabase.test',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:serviceKey,R2_ACCOUNT_ID:'0123456789abcdef0123456789abcdef',R2_ACCESS_KEY_ID:'access',R2_SECRET_ACCESS_KEY:'secret',R2_BUCKET_NAME:'bucket'}},Date,URL,Buffer,AbortSignal,fetch:aiFetch});
   const cached=new Map();
   async function synthetic(name,exports) {
     if(cached.has(name))return cached.get(name);
@@ -39,12 +39,13 @@ export async function fixture({routeName="files",member=true,client=false,token=
     if(name==='@supabase/supabase-js')return synthetic(name,{createClient:()=>db});
     if(name==='@aws-sdk/client-s3')return synthetic(name,aws);
     if(name==='@aws-sdk/s3-request-presigner')return synthetic(name,{getSignedUrl:async(_client,command)=>{calls.push(command);return `https://r2.test/${command.input.Key}`;}});
-    const path=name.includes('workspace-policy')?'lib/workspace-policy.mjs':name==='workspace-route'?'app/api/workspace/route.js':name.includes('upload-policy')?'lib/upload-policy.mjs':name.includes('contract-items')?'lib/contract-items.mjs':name.includes('approval-token')?'lib/approval-token.mjs':name.includes('r2-config')?'lib/r2-config.mjs':name.includes('production-policy')?'lib/production-policy.mjs':name.includes('whatsapp-server')?'lib/whatsapp-server.js':name.includes('r2-server')?'lib/r2-server.js':name==='production-route'?'app/api/production/route.js':name==='projects-route'?'app/api/projects/route.js':name==='team-route'?'app/api/team/route.js':'app/api/files/route.js';
+    const path=name==='ai-creation-route'?'app/api/ai-creation/route.js':name.includes('ai-creation.mjs')?'lib/ai-creation.mjs':name.includes('workspace-policy')?'lib/workspace-policy.mjs':name==='workspace-route'?'app/api/workspace/route.js':name.includes('upload-policy')?'lib/upload-policy.mjs':name.includes('contract-items')?'lib/contract-items.mjs':name.includes('approval-token')?'lib/approval-token.mjs':name.includes('r2-config')?'lib/r2-config.mjs':name.includes('production-policy')?'lib/production-policy.mjs':name.includes('whatsapp-server')?'lib/whatsapp-server.js':name.includes('r2-server')?'lib/r2-server.js':name==='production-route'?'app/api/production/route.js':name==='projects-route'?'app/api/projects/route.js':name==='team-route'?'app/api/team/route.js':'app/api/files/route.js';
     const m=new vm.SourceTextModule(await readFile(new URL('../../'+path,import.meta.url),'utf8'),{context,identifier:name});cached.set(name,m);await m.link(load);return m;
   }
-  const route=await load(routeName==='workspace'?'workspace-route':routeName==='production'?'production-route':routeName==='projects'?'projects-route':routeName==='team'?'team-route':'route');await route.evaluate();
+  const route=await load(routeName==='ai-creation'?'ai-creation-route':routeName==='workspace'?'workspace-route':routeName==='production'?'production-route':routeName==='projects'?'projects-route':routeName==='team'?'team-route':'route');await route.evaluate();
   return {s,calls,tables,request:async body=>{
     const r=await route.namespace.POST(new Request('https://avesso.test/api/files',{method:'POST',headers:{authorization:'Bearer valid'},body:JSON.stringify(body)}));return {status:r.status,body:await r.json()};
   }};
 }
+
 
