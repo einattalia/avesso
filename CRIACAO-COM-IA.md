@@ -4,9 +4,16 @@ Acesso pelo menu da agência e pela página de cada cliente, sempre com seletor 
 
 ## Ativação
 
-Configure `OPENAI_API_KEY` como variável secreta de servidor na Vercel e publique novamente. Nunca use o prefixo NEXT_PUBLIC e nunca salve a chave no Git. Opcional: `OPENAI_TEXT_MODEL` para substituir o modelo padrão `gpt-6-luna` por um modelo disponível na conta.
+Escolha entre ChatGPT (OpenAI) e Claude (Anthropic) no campo "IA para esta criação". Configure as conexões desejadas como variáveis Secret de servidor na Vercel e publique novamente:
 
-Sem a chave, a tela informa que a geração está inativa. Preparar/copiar o briefing, editar, salvar versões e enviar para Produção continuam disponíveis. Não há geração simulada.
+| Conexão | Chave | Modelo padrão | Substituição opcional |
+| --- | --- | --- | --- |
+| ChatGPT (OpenAI) | `OPENAI_API_KEY` | `gpt-6-luna` | `OPENAI_TEXT_MODEL` |
+| Claude (Anthropic) | `ANTHROPIC_API_KEY` | `claude-sonnet-5-5` | `ANTHROPIC_TEXT_MODEL` |
+
+Cada conexão pode ser ativada independentemente, com cobrança na respectiva conta de API. Nunca use o prefixo NEXT_PUBLIC e nunca salve chaves no Git. A seleção não autoriza fallback: falhas não redirecionam o briefing para o outro fornecedor. "Chave cadastrada" indica presença da chave, não comprova saldo ou validade; faça uma geração para validar a conexão real.
+
+Sem a chave da IA selecionada, a tela informa que a geração está inativa. Preparar/copiar o briefing, editar, salvar versões e enviar para Produção continuam disponíveis. Não há geração simulada.
 
 ## Fluxo
 

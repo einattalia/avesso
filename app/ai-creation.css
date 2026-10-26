@@ -3,3 +3,5 @@
 /* Keep the laboratory name and agency navigation on a single line. */
 .side{width:260px}.side nav button span{white-space:nowrap}.side .tag{white-space:pre;letter-spacing:1.4px}.content{margin-left:260px;width:calc(100% - 260px)}.aiHeading h2{white-space:nowrap;font-size:clamp(25px,3vw,44px)}
 @media(max-width:760px){.content{margin-left:0;width:100%}}
+
+.aiProvider{max-width:540px;margin:20px 0}.aiProvider small{font-weight:400}
