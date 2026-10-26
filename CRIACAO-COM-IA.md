@@ -1,6 +1,6 @@
-# Criação com IA
+# Laboratório IA
 
-Acesso pelo menu da agência e pela página de cada cliente. Ferramentas: planejamento mensal, posts, carrosséis, roteiros, direção visual e revisão de conteúdo.
+Acesso pelo menu da agência e pela página de cada cliente, sempre com seletor do cliente a ser trabalhado. Ferramentas: planejamento mensal, posts, carrosséis, roteiros, direção visual e revisão de conteúdo.
 
 ## Ativação
 

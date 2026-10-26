@@ -6,13 +6,13 @@ import {creationTools,creationPrompt} from '../../lib/ai-creation.mjs';
 
 const icons=[CalendarDays,FileText,Layers,Clapperboard,Palette,CheckCheck];
 const empty={topic:'',objective:'',audience:'',tone:'',quantity:'',month:''};
-export default function AICreation({supabase,ctx,client:fixedClient,onProduction}){
+export default function AICreation({supabase,ctx,client:fixedClient,onClientChange,onProduction}){
  const [clients,setClients]=useState([]),[clientId,setClientId]=useState(fixedClient?.id||''),[tool,setTool]=useState('post'),[form,setForm]=useState(empty),[result,setResult]=useState(''),[title,setTitle]=useState(''),[profile,setProfile]=useState(''),[profileItem,setProfileItem]=useState(null),[context,setContext]=useState(''),[history,setHistory]=useState([]),[selected,setSelected]=useState(null),[configured,setConfigured]=useState(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const epoch=useRef(0),mounted=useRef(true);
  const client=fixedClient||clients.find(c=>c.id===clientId),selectedTool=creationTools.find(t=>t.id===tool);
  const request=(body,endpoint='/api/workspace')=>fileApi(supabase,{...body,clientId},endpoint);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;epoch.current++}},[]);
- useEffect(()=>{if(fixedClient)return;let active=true;supabase.from('clients').select('id,name,organization_id').eq('organization_id',ctx.organization.id).order('name').then(({data,error:e})=>{if(active){if(e)setError('Não foi possível carregar os clientes.');else setClients(data||[])}});return()=>{active=false}},[fixedClient,ctx?.organization?.id,supabase]);
+ useEffect(()=>{let active=true;supabase.from('clients').select('id,name,organization_id').eq('organization_id',fixedClient?.organization_id||ctx.organization.id).order('name').then(({data,error:e})=>{if(active){if(e)setError('Não foi possível carregar os clientes.');else setClients(data||[])}});return()=>{active=false}},[fixedClient,ctx?.organization?.id,supabase]);
  useEffect(()=>{
   const version=++epoch.current;setResult('');setTitle('');setSelected(null);setForm(empty);setHistory([]);setProfile('');setProfileItem(null);setContext('');setConfigured(null);setError('');setMessage('');
   if(!clientId)return;setLoading(true);
@@ -36,8 +36,8 @@ export default function AICreation({supabase,ctx,client:fixedClient,onProduction
  async function copy(text){try{await navigator.clipboard.writeText(text);setMessage('Texto copiado.')}catch{setError('Não foi possível copiar. Selecione o texto e copie manualmente.')}}
  function chooseTool(id){setTool(id);setMessage('')}
  return <section className="aiCreation">
-  <div className="aiHeading"><div><span className="aiKicker"><Sparkles size={16}/> ESTÚDIO AVESSO</span><h2>Criação com IA<span>.</span></h2><p>Da primeira ideia ao briefing pronto para criar.</p></div><span className="aiHuman">IA como apoio. Criação com a equipe.</span></div>
-  {!fixedClient&&<label className="aiClient">Para qual cliente vamos criar?<select value={clientId} disabled={busy} onChange={e=>setClientId(e.target.value)}><option value="">Selecione um cliente</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+  <div className="aiHeading"><div><span className="aiKicker"><Sparkles size={16}/> ESTÚDIO AVESSO</span><h2>Laboratório IA<span>.</span></h2><p>Da primeira ideia ao briefing pronto para criar.</p></div><span className="aiHuman">IA como apoio. Criação com a equipe.</span></div>
+  {<label className="aiClient">Cliente do laboratório<select value={clientId} disabled={busy} onChange={e=>{const id=e.target.value;setClientId(id);if(fixedClient&&id)onClientChange?.(clients.find(c=>c.id===id))}}><option value="" disabled={!!fixedClient}>Selecione um cliente</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
   <div className="aiToolGrid" role="group" aria-label="Ferramentas de criação">{creationTools.map((t,i)=>{const Icon=icons[i];return <button type="button" key={t.id} disabled={busy} className={tool===t.id?'aiTool selected':'aiTool'} aria-pressed={tool===t.id} onClick={()=>chooseTool(t.id)}><Icon size={22}/><strong>{t.name}</strong><span>{t.description}</span></button>})}</div>
   {error&&<p className="loginError" role="alert">{error}</p>}{message&&<p className="saveMsg" role="status">{message}</p>}
   {!clientId?<div className="aiEmpty"><Sparkles size={32}/><h3>Uma marca, muitas possibilidades.</h3><p>Selecione um cliente para começar com as informações e o histórico dele.</p></div>:loading?<p role="status">Carregando contexto da marca…</p>:<>
