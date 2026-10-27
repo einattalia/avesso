@@ -3,6 +3,7 @@ import {useCallback,useEffect,useMemo,useState} from 'react';
 import {Bell,Check,ExternalLink} from 'lucide-react';
 
 function eventLabel(status,clientSide){
+ if(status==='monthly_evaluation')return 'Suas postagens foram todas entregues. Avalie como foi seu mês com a gente.';
  if(status==='with_client')return clientSide?'Nova arte aguardando sua aprovação':'Arte enviada ao cliente para aprovação';
  if(status==='approved')return clientSide?'Sua aprovação foi registrada':'Cliente aprovou uma arte';
  if(status==='adjustments')return clientSide?'A equipe recebeu seu pedido de ajuste':'Cliente pediu ajustes em uma arte';

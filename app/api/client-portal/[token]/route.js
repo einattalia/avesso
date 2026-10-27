@@ -42,12 +42,26 @@ export async function GET(request,{params}){
     if(!client)fail('Este portal não está disponível.',404);
     const view=new URL(request.url).searchParams.get('view');
     if(view==='notifications'){
-      const {data:activity,error}=await admin.from('production_activity')
-        .select('id,demand_id,to_status,created_at,demand:demands!inner(title,organization_id,client_id)')
-        .eq('demand.organization_id',client.organization_id).eq('demand.client_id',client.id)
-        .in('to_status',['with_client','approved','adjustments']).order('created_at',{ascending:false}).limit(50);
-      if(error)throw error;
-      return Response.json({events:(activity||[]).map(event=>({id:event.id,demandId:event.demand_id,status:event.to_status,createdAt:event.created_at,title:event.demand?.title||'Arte'}))},{headers});
+      const [{data:activity,error:activityError},{data:plans,error:plansError}]=await Promise.all([
+        admin.from('production_activity').select('id,demand_id,to_status,created_at,demand:demands!inner(title,organization_id,client_id)').eq('demand.organization_id',client.organization_id).eq('demand.client_id',client.id).in('to_status',['with_client','approved','adjustments']).order('created_at',{ascending:false}).limit(50),
+        admin.from('client_monthly_plans').select('id,plan_month,client_rating').eq('organization_id',client.organization_id).eq('client_id',client.id).eq('status','shared').order('plan_month',{ascending:false})
+      ]);
+      if(activityError||plansError)throw activityError||plansError;
+      const evaluationEvents=[];
+      if((plans||[]).length){
+        const months=(plans||[]).map(plan=>String(plan.plan_month).slice(0,7)).sort(),startDate=`${months[0]}-01`,endDate=nextMonthStart(`${months[months.length-1]}-01`);
+        const {data:scheduledDemands,error:scheduledError}=await admin.from('demands').select('publish_date,status').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).gte('publish_date',startDate).lt('publish_date',endDate);
+        if(scheduledError)throw scheduledError;
+        for(const plan of plans||[]){
+          if(plan.client_rating)continue;
+          const progress=monthlyEvaluationProgress(scheduledDemands||[],plan.plan_month);
+          if(!progress.evaluationAvailable)continue;
+          const monthLabel=new Date(`${String(plan.plan_month).slice(0,7)}-01T12:00:00`).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+          evaluationEvents.push({id:`monthly-evaluation-${plan.id}`,planId:plan.id,status:'monthly_evaluation',createdAt:`${progress.lastPublishDate}T12:00:00-03:00`,title:monthLabel});
+        }
+      }
+      const events=[...(activity||[]).map(event=>({id:event.id,demandId:event.demand_id,status:event.to_status,createdAt:event.created_at,title:event.demand?.title||'Arte'})),...evaluationEvents].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).slice(0,50);
+      return Response.json({events},{headers});
     }
 
     let clientLogoUrl=null;
