@@ -56,12 +56,12 @@ function EvaluationForm({plan,onSubmit,busy,error}){
  useEffect(()=>{setRating(plan.clientRating||0);setFeedback(plan.clientFeedback||'')},[plan.id,plan.clientRating,plan.clientFeedback]);
  const labels=['','Péssimo','Ruim','Regular','Bom','Excelente'];
  return <section className="portalMonthlyEvaluation">
-  <div className="portalEvaluationHeader"><div><small>AVALIAÇÃO DO MÊS</small><h3>Como foi nosso trabalho neste mês?</h3><p>Sua opinião ajuda a Avesso a melhorar o planejamento e as entregas.</p></div></div>
+  <div className="portalEvaluationHeader"><div><small>AVALIAÇÃO DO MÊS</small><h3>Como foi nosso trabalho neste mês?</h3><p>Avalie o trabalho completo da Avesso neste mês: planejamento, criação, comunicação e entregas.</p></div></div>
   <div className="portalStarRating" role="radiogroup" aria-label="Avalie o mês de trabalho">
    {[1,2,3,4,5].map(value=><button key={value} type="button" role="radio" aria-checked={rating===value} aria-label={value+' estrela'+(value>1?'s':'')} className={value<=rating?'selected':''} onClick={()=>setRating(value)}>★</button>)}
    <span>{rating?labels[rating]:'Escolha uma nota de 1 a 5'}</span>
   </div>
-  <label className="portalEvaluationComment">Comentário (opcional)<textarea rows="3" maxLength="4000" value={feedback} onChange={event=>setFeedback(event.target.value)} placeholder="Conte como foi sua experiência com o planejamento e o trabalho do mês."/></label>
+  <label className="portalEvaluationComment">Comentário (opcional)<textarea rows="3" maxLength="4000" value={feedback} onChange={event=>setFeedback(event.target.value)} placeholder="Conte como foi o trabalho da Avesso neste mês, do planejamento à última entrega."/></label>
   {error&&<p className="portalEvaluationError" role="alert">{error}</p>}
   <div className="portalEvaluationFooter"><button type="button" className="portalApproveButton" disabled={!rating||busy} onClick={()=>onSubmit(plan.id,rating,feedback)}>{busy?'Enviando...':plan.clientRating?'Atualizar avaliação':'Enviar avaliação'}</button>{plan.clientFeedbackAt&&<small>Última avaliação: {new Date(plan.clientFeedbackAt).toLocaleDateString('pt-BR')}</small>}</div>
  </section>;
@@ -71,7 +71,7 @@ function MonthlyPlans({plans,clientName,notes,setNotes,working,respond,error,onE
  const selectedPlan=plans.find(plan=>plan.id===selectedPlanId)||null;
  return <section className="clientPortalContent portalPlans">
   {error&&<div className="portalActionError">{error}</div>}
-  {!selectedPlan?plans.length===0?<div className="portalEmpty"><h2>Nenhum planejamento compartilhado</h2><p>Quando a equipe Avesso compartilhar o planejamento do mês, ele ficará disponível aqui.</p></div>:<div className="portalPlanMonthGrid">{plans.map(plan=><button type="button" className="portalPlanMonthFolder" key={plan.id} onClick={()=>setSelectedPlanId(plan.id)}><span className="portalPlanMonthFolderTop"><small>PASTA DO MÊS</small><span>Planejamento compartilhado</span></span><strong>{monthTitle(plan.planMonth)}</strong><span className="portalPlanMonthFolderCount">{plan.items.length} {plan.items.length===1?'ideia proposta':'ideias propostas'}</span><span className="portalPlanMonthFolderOpen">Abrir planejamento <b>→</b></span></button>)}</div>:<>
+  {!selectedPlan?plans.length===0?<div className="portalEmpty"><h2>Nenhum planejamento compartilhado</h2><p>Quando a equipe Avesso compartilhar o planejamento do mês, ele ficará disponível aqui.</p></div>:<div className="portalPlanMonthGrid">{plans.map(plan=><button type="button" className="portalPlanMonthFolder" key={plan.id} onClick={()=>setSelectedPlanId(plan.id)}><span className="portalPlanMonthFolderTop"><small>PASTA DO MÊS</small><span>Planejamento compartilhado</span></span><strong>{monthTitle(plan.planMonth)}</strong><span className="portalPlanMonthFolderCount">{plan.items.length} {plan.items.length===1?'ideia proposta':'ideias propostas'}</span><span className="portalPlanEvaluationStatus">{plan.clientRating?'Avaliação enviada':plan.evaluationAvailable?'Avaliação disponível':'Aguardando última postagem'}</span><span className="portalPlanMonthFolderOpen">Abrir planejamento <b>→</b></span></button>)}</div>:<>
    <button type="button" className="portalMonthlyBack" onClick={()=>setSelectedPlanId(null)}>← Todos os meses</button>
    <article className="portalPlanCard" key={selectedPlan.id}>
     <header className="portalPlanHeader"><div><small>PROPOSTA DE PLANEJAMENTO</small><h2>{monthTitle(selectedPlan.planMonth)}</h2><p>{selectedPlan.items.length} {selectedPlan.items.length===1?'ideia proposta':'ideias propostas'}</p></div><button type="button" className="portalDownloadButton" onClick={()=>downloadMonthlyPlanPdf({clientName,month:selectedPlan.planMonth.slice(0,7),items:selectedPlan.items})}>Baixar planejamento em PDF</button></header>
@@ -86,7 +86,7 @@ function MonthlyPlans({plans,clientName,notes,setNotes,working,respond,error,onE
       {['pending','changes_requested'].includes(item.status)&&<div className="portalPlanResponse"><label>O que você acha desta proposta? Deixe sua opinião ou sugestão.<textarea rows="3" value={notes[item.id]||''} onChange={event=>setNotes(old=>({...old,[item.id]:event.target.value}))} placeholder="Compartilhe sua opinião ou sugestão para este conteúdo."/></label><div className="portalPlanActions"><button type="button" className="portalAdjustButton" disabled={working===item.id} onClick={()=>respond(item,'changes')}>{working===item.id?'Enviando...':'Enviar sugestão'}</button><button type="button" className="portalApproveButton" disabled={working===item.id} onClick={()=>respond(item,'approve')}>{working===item.id?'Enviando...':'Aprovar proposta'}</button></div></div>}
      </article>
     ))}</div>
-    <EvaluationForm plan={selectedPlan} onSubmit={onEvaluate} busy={evaluationWorking===selectedPlan.id} error={error}/>
+    {selectedPlan.evaluationAvailable?<EvaluationForm plan={selectedPlan} onSubmit={onEvaluate} busy={evaluationWorking===selectedPlan.id} error={error}/>:<section className="portalMonthlyEvaluation portalEvaluationPending"><div className="portalEvaluationHeader"><div><small>AVALIAÇÃO DO MÊS</small><h3>Sua avaliação será liberada após a última postagem.</h3><p>{selectedPlan.lastPublishDate?'Última postagem prevista: '+formatDate(selectedPlan.lastPublishDate):'Assim que as artes do mês tiverem datas de postagem, você verá por aqui quando a avaliação estiver disponível.'}</p></div></div></section>}
    </article>
   </>}
  </section>;

@@ -8,6 +8,10 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store, max-age=0','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow'};
 const reply=(body,status=200)=>Response.json(body,{status,headers});
+const evaluationFinishedStatuses=new Set(['posted','delivered','approved','awaiting_scheduling','scheduled']);
+function brazilToday(){const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const values=Object.fromEntries(parts.filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));return `${values.year}-${values.month}-${values.day}`}
+function nextMonthStart(value){const [year,month]=String(value||'').slice(0,7).split('-').map(Number);return new Date(Date.UTC(year,month,1)).toISOString().slice(0,10)}
+function monthlyEvaluationProgress(demands,planMonth){const month=String(planMonth||'').slice(0,7),items=(demands||[]).filter(demand=>demand.publish_date&&String(demand.publish_date).slice(0,7)===month),lastPublishDate=items.reduce((latest,demand)=>!latest||demand.publish_date>latest?demand.publish_date:latest,null),today=brazilToday();return {evaluationAvailable:items.length>0&&items.every(demand=>demand.publish_date<=today&&evaluationFinishedStatuses.has(demand.status)),lastPublishDate}}
 
 async function signedAsset(admin,demand,version){
   if(version.storage_provider==='r2'){
@@ -66,6 +70,13 @@ export async function GET(request,{params}){
     }
     const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['with_client','adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
     if(demandError)throw demandError;
+    if((plans||[]).length){
+      const planMonths=(plans||[]).map(plan=>String(plan.plan_month).slice(0,7)).sort();
+      const startDate=`${planMonths[0]}-01`,endDate=nextMonthStart(`${planMonths[planMonths.length-1]}-01`);
+      const {data:scheduledDemands,error:scheduledDemandsError}=await admin.from('demands').select('publish_date,status').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).gte('publish_date',startDate).lt('publish_date',endDate);
+      if(scheduledDemandsError)throw scheduledDemandsError;
+      monthlyPlans=monthlyPlans.map(plan=>({...plan,...monthlyEvaluationProgress(scheduledDemands||[],plan.planMonth)}));
+    }
     const ids=(demands||[]).map(d=>d.id);
     const {data:activity,error:activityError}=await admin.from('production_activity')
       .select('id,demand_id,to_status,created_at,demand:demands!inner(title,organization_id,client_id)')
@@ -173,9 +184,13 @@ export async function POST(request,{params}){
       if(body.feedback!==undefined&&typeof body.feedback!=='string')fail('Comentário inválido.');
       const feedback=(body.feedback||'').trim();
       if(feedback.length>4000)fail('O comentário deve ter até 4.000 caracteres.');
-      const {data:plan,error:planError}=await admin.from('client_monthly_plans').select('id,status').eq('id',body.planId).eq('client_id',access.client_id).eq('organization_id',access.organization_id).maybeSingle();
+      const {data:plan,error:planError}=await admin.from('client_monthly_plans').select('id,status,plan_month').eq('id',body.planId).eq('client_id',access.client_id).eq('organization_id',access.organization_id).maybeSingle();
       if(planError)throw planError;
       if(!plan||plan.status!=='shared')fail('Este planejamento não está disponível para avaliação.',404);
+      const [year,month]=String(plan.plan_month).slice(0,7).split('-').map(Number),startDate=`${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-01`,endDate=new Date(Date.UTC(year,month,1)).toISOString().slice(0,10);
+      const {data:monthDemands,error:monthDemandsError}=await admin.from('demands').select('publish_date,status').eq('organization_id',access.organization_id).eq('client_id',access.client_id).is('archived_at',null).gte('publish_date',startDate).lt('publish_date',endDate);
+      if(monthDemandsError)throw monthDemandsError;
+      if(!monthlyEvaluationProgress(monthDemands||[],plan.plan_month).evaluationAvailable)fail('A avaliação ficará disponível após a postagem da última arte prevista para este mês.',409);
       const now=new Date().toISOString();
       const {error:updateError}=await admin.from('client_monthly_plans').update({client_rating:body.rating,client_feedback:feedback||null,client_feedback_at:now,updated_at:now}).eq('id',plan.id).eq('client_id',access.client_id).eq('organization_id',access.organization_id);
       if(updateError)throw updateError;
