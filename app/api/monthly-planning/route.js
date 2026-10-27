@@ -50,7 +50,7 @@ export async function POST(request){
     const {admin,user,client}=await agencyForClient(request,body.clientId);
     const actorName=(user.email||'Equipe Avesso').slice(0,160);
     if(body.action==='listPlans'){
-      const plans=checked(await admin.from('client_monthly_plans').select('id,plan_month,status,updated_at,shared_at').eq('client_id',client.id).eq('organization_id',client.organization_id).order('plan_month',{ascending:false}));
+      const plans=checked(await admin.from('client_monthly_plans').select('id,plan_month,approval_deadline,status,updated_at,shared_at').eq('client_id',client.id).eq('organization_id',client.organization_id).order('plan_month',{ascending:false}));
       const ids=plans.map(plan=>plan.id);
       const items=ids.length?checked(await admin.from('client_monthly_plan_items').select('plan_id,status').in('plan_id',ids).is('removed_at',null)):[];
       const counts=new Map();
@@ -76,7 +76,13 @@ export async function POST(request){
       checked(await admin.from('client_monthly_plans').delete().eq('id',plan.id).eq('client_id',client.id).eq('organization_id',client.organization_id));
       return reply({deleted:true});
     }
-    if(body.action==='updateMonth'){
+    if(body.action==='saveApprovalDeadline'){
+       const deadline=body.approvalDeadline;
+       if(deadline!==null&&deadline!==undefined&&(typeof deadline!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(deadline)||!Number.isFinite(Date.parse(deadline+'T00:00:00.000Z'))||new Date(deadline+'T00:00:00.000Z').toISOString().slice(0,10)!==deadline))fail('Data prevista para aprovação inválida.');
+       const updated=checked(await admin.from('client_monthly_plans').update({approval_deadline:deadline||null,updated_at:new Date().toISOString()}).eq('id',plan.id).eq('client_id',client.id).eq('organization_id',client.organization_id).select('*').single());
+       return reply({plan:updated});
+     }
+     if(body.action==='updateMonth'){
       const newMonth=validMonth(body.newMonth);
       if(monthFromDate(newMonth)===monthFromDate(plan.plan_month))return reply({plan,changed:false});
       const conflict=checked(await admin.from('client_monthly_plans').select('id').eq('client_id',client.id).eq('plan_month',newMonth).neq('id',plan.id).maybeSingle());
@@ -117,6 +123,7 @@ export async function POST(request){
       if(plan.status==='shared')fail('Este planejamento já foi compartilhado.',409);
       const items=checked(await admin.from('client_monthly_plan_items').select('*').eq('plan_id',plan.id).is('removed_at',null).order('position',{ascending:true}));
       if(!items.length)fail('Adicione pelo menos uma arte antes de compartilhar.');
+       if(!plan.approval_deadline)fail('Defina a data prevista para aprovação antes de compartilhar o planejamento.');
       const updatedPlan=checked(await admin.from('client_monthly_plans').update({status:'shared',shared_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',plan.id).eq('status','draft').select('*').single());
       const updatedItems=checked(await admin.from('client_monthly_plan_items').update({status:'pending',review_note:null,responded_at:null,updated_at:new Date().toISOString()}).eq('plan_id',plan.id).eq('status','draft').is('removed_at',null).select('*'));
       await logEvents(admin,updatedPlan,updatedItems,'shared',actorName);

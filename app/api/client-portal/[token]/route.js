@@ -50,7 +50,7 @@ export async function GET(request,{params}){
     if(client.photo_path){
       try{const {data:logo}=await admin.storage.from('avesso-profile-images').createSignedUrl(client.photo_path,3600);clientLogoUrl=logo?.signedUrl||null}catch{}
     }
-    const {data:plans,error:plansError}=await admin.from('client_monthly_plans').select('id,plan_month,status,shared_at,client_rating,client_feedback,client_feedback_at').eq('organization_id',client.organization_id).eq('client_id',client.id).eq('status','shared').order('plan_month',{ascending:false});
+    const {data:plans,error:plansError}=await admin.from('client_monthly_plans').select('id,plan_month,approval_deadline,status,shared_at,client_rating,client_feedback,client_feedback_at').eq('organization_id',client.organization_id).eq('client_id',client.id).eq('status','shared').order('plan_month',{ascending:false});
     if(plansError)throw plansError;
     const planIds=(plans||[]).map(plan=>plan.id);
     let monthlyPlans=[];
@@ -62,7 +62,7 @@ export async function GET(request,{params}){
       if(teamIds.length){const {data:team,error:teamError}=await admin.from('agency_team_members').select('id,name').eq('organization_id',client.organization_id).in('id',teamIds);if(teamError)throw teamError;teamById=new Map((team||[]).map(person=>[person.id,person.name]))}
       const itemsByPlan=new Map();
       for(const item of planItems||[]){const withNames={...item,designerName:teamById.get(item.designer_id)||null,videomakerName:teamById.get(item.videomaker_id)||null};const list=itemsByPlan.get(item.plan_id)||[];list.push(withNames);itemsByPlan.set(item.plan_id,list)}
-      monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,status:plan.status,sharedAt:plan.shared_at,clientRating:plan.client_rating,clientFeedback:plan.client_feedback,clientFeedbackAt:plan.client_feedback_at,items:itemsByPlan.get(plan.id)||[]}));
+      monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,approvalDeadline:plan.approval_deadline||null,status:plan.status,sharedAt:plan.shared_at,clientRating:plan.client_rating,clientFeedback:plan.client_feedback,clientFeedbackAt:plan.client_feedback_at,items:itemsByPlan.get(plan.id)||[]}));
     }
     const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['with_client','adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
     if(demandError)throw demandError;

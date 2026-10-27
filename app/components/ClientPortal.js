@@ -8,6 +8,7 @@ function formatDate(v){return v?new Date(v+'T12:00:00').toLocaleDateString('pt-B
 function category(a,t){if(a.status==='with_client')return 'aguardando';if(a.status==='adjustments')return 'ajustes';if(['delivered','posted'].includes(a.status)||(a.publishDate&&a.publishDate<=t&&['approved','awaiting_scheduling','scheduled'].includes(a.status)))return 'entregas';if(a.publishDate&&a.publishDate>t&&['approved','awaiting_scheduling','scheduled'].includes(a.status))return 'agendados';return 'aprovados'}
 const tabs=[['planejamento','Planejamento mensal'],['aguardando','Aguardando aprovação'],['ajustes','Ajustes solicitados'],['aprovados','Aprovados'],['agendados','Agendados'],['calendario','Calendário de postagens'],['entregas','Entregues']];
 function monthTitle(v){return new Date(v.slice(0,7)+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
+function dateLabel(v){return v?new Date(v+'T12:00:00').toLocaleDateString('pt-BR'):'a definir'}
 function itemStatus(s){return ({pending:'Aguardando sua opinião',approved:'Ideia aprovada',changes_requested:'Sugestão enviada'})[s]||'Em planejamento'}
 function PortalArts({arts,tab,today,onDecision,working,error}){
  const visible=arts.filter(a=>category(a,today)===tab);
@@ -74,6 +75,7 @@ function MonthlyPlans({plans,clientName,notes,setNotes,working,respond,error,onE
    <button type="button" className="portalMonthlyBack" onClick={()=>setSelectedPlanId(null)}>← Todos os meses</button>
    <article className="portalPlanCard" key={selectedPlan.id}>
     <header className="portalPlanHeader"><div><small>PROPOSTA DE PLANEJAMENTO</small><h2>{monthTitle(selectedPlan.planMonth)}</h2><p>{selectedPlan.items.length} {selectedPlan.items.length===1?'ideia proposta':'ideias propostas'}</p></div><button type="button" className="portalDownloadButton" onClick={()=>downloadMonthlyPlanPdf({clientName,month:selectedPlan.planMonth.slice(0,7),items:selectedPlan.items})}>Baixar planejamento em PDF</button></header>
+    <aside className="portalApprovalDeadline" aria-label="Prazo para aprovação"><strong>Data prevista para aprovação: {dateLabel(selectedPlan.approvalDeadline)}</strong><p>Após a data prevista, a equipe da Avesso entende que não há necessidade de alterar o planejamento.</p></aside>
     <div className="portalPlanItems">{selectedPlan.items.map((item,index)=>(
      <article className="portalPlanItem" key={item.id}>
       <div className="portalPlanItemHeading"><div><small>IDEIA {String(index+1).padStart(2,'0')}</small><h3>{item.title}</h3></div><span className={'portalPlanStatus status-'+item.status}>{itemStatus(item.status)}</span></div>
