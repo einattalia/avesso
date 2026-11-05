@@ -73,13 +73,17 @@ export async function GET(request,{params}){
     const planIds=(plans||[]).map(plan=>plan.id);
     let monthlyPlans=[];
     if(planIds.length){
-      const {data:planItems,error:itemsError}=await admin.from('client_monthly_plan_items').select('id,plan_id,position,title,description,format,designer_id,videomaker_id,scheduled_date,status,review_note,responded_at').in('plan_id',planIds).is('removed_at',null).order('position',{ascending:true});
-      if(itemsError)throw itemsError;
+      const [{data:planItems,error:itemsError},{data:agencyEvents,error:agencyEventsError}]=await Promise.all([
+        admin.from('client_monthly_plan_items').select('id,plan_id,position,title,description,format,designer_id,videomaker_id,scheduled_date,status,review_note,responded_at').in('plan_id',planIds).is('removed_at',null).order('position',{ascending:true}),
+        admin.from('client_monthly_plan_item_events').select('item_id,snapshot,created_at').in('plan_id',planIds).eq('actor_type','agency').order('created_at',{ascending:false})
+      ]);
+      if(itemsError||agencyEventsError)throw itemsError||agencyEventsError;
+      const suggestions=new Map();for(const event of agencyEvents||[]){if(!suggestions.has(event.item_id))suggestions.set(event.item_id,event.snapshot?.agency_suggestion||'')}
       const teamIds=[...new Set((planItems||[]).flatMap(item=>[item.designer_id,item.videomaker_id]).filter(Boolean))];
       let teamById=new Map();
       if(teamIds.length){const {data:team,error:teamError}=await admin.from('agency_team_members').select('id,name').eq('organization_id',client.organization_id).in('id',teamIds);if(teamError)throw teamError;teamById=new Map((team||[]).map(person=>[person.id,person.name]))}
       const itemsByPlan=new Map();
-      for(const item of planItems||[]){const withNames={...item,designerName:teamById.get(item.designer_id)||null,videomakerName:teamById.get(item.videomaker_id)||null};const list=itemsByPlan.get(item.plan_id)||[];list.push(withNames);itemsByPlan.set(item.plan_id,list)}
+      for(const item of planItems||[]){const withNames={...item,agency_suggestion:suggestions.get(item.id)||'',designerName:teamById.get(item.designer_id)||null,videomakerName:teamById.get(item.videomaker_id)||null};const list=itemsByPlan.get(item.plan_id)||[];list.push(withNames);itemsByPlan.set(item.plan_id,list)}
       monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,approvalDeadline:plan.approval_deadline||null,status:plan.status,sharedAt:plan.shared_at,clientRating:plan.client_rating,clientFeedback:plan.client_feedback,clientFeedbackAt:plan.client_feedback_at,items:itemsByPlan.get(plan.id)||[]}));
     }
     const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['with_client','adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
@@ -174,7 +178,8 @@ export async function POST(request,{params}){
     let body;try{body=JSON.parse(raw)}catch{fail('Solicitação inválida.')}
     if(!body||!['approve','changes','evaluate','approveArt','requestArtChanges'].includes(body.decision))fail('Decisão inválida.');
     const note=typeof body.note==='string'?body.note.trim():'';
-    if(['changes','requestArtChanges'].includes(body.decision)&&(note.length<3||note.length>20000))fail('Descreva os ajustes necessários (de 3 a 20.000 caracteres).');
+    if(['changes','requestArtChanges'].includes(body.decision)&&note.length<3)fail('Descreva os ajustes necessários (de 3 a 20.000 caracteres).');
+    if(note.length>20000)fail('O comentário deve ter até 20.000 caracteres.');
     const admin=adminDb();
     const {data:access,error:accessError}=await admin.from('client_portal_tokens').select('client_id,organization_id,revoked_at').eq('token_hash',digest).maybeSingle();
     if(accessError)throw accessError;
@@ -222,7 +227,9 @@ export async function POST(request,{params}){
     const {data:updated,error:updateError}=await admin.from('client_monthly_plan_items').update({status:nextStatus,review_note:nextStatus==='changes_requested'?note:null,responded_at:now,updated_at:now}).eq('id',item.id).eq('status',item.status).select('id').maybeSingle();
     if(updateError)throw updateError;
     if(!updated)fail('Esta arte acabou de ser atualizada. Recarregue a página e tente novamente.',409);
-    const event={plan_id:plan.id,item_id:item.id,organization_id:access.organization_id,client_id:access.client_id,actor_type:'client',event:nextStatus,actor_name:'Cliente',note:nextStatus==='changes_requested'?note:null,snapshot:{title:item.title,description:item.description,format:item.format||null,scheduled_date:item.scheduled_date||null}};
+    const [{data:agencyEvent,error:agencyEventError}]=await Promise.all([admin.from('client_monthly_plan_item_events').select('snapshot').eq('item_id',item.id).eq('actor_type','agency').order('created_at',{ascending:false}).limit(1)]);
+    if(agencyEventError)throw agencyEventError;
+    const event={plan_id:plan.id,item_id:item.id,organization_id:access.organization_id,client_id:access.client_id,actor_type:'client',event:nextStatus,actor_name:'Cliente',note:note||null,snapshot:{title:item.title,description:item.description,format:item.format||null,scheduled_date:item.scheduled_date||null,agency_suggestion:agencyEvent?.snapshot?.agency_suggestion||null}};
     const {error:eventError}=await admin.from('client_monthly_plan_item_events').insert(event);
     if(eventError)throw eventError;
     return reply({status:nextStatus});
