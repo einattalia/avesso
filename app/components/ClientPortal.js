@@ -1,5 +1,5 @@
 'use client';
-import {useCallback,useEffect,useRef,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {downloadMonthlyPlanPdf} from '../../lib/monthly-plan-pdf.mjs';
 import NotificationBell from './NotificationBell';
 
