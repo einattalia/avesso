@@ -161,7 +161,8 @@ export async function GET(request,{params}){
       }
       if(!visible.length)continue;
       const assets=await Promise.all(visible.map(async version=>({id:version.id,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,caption:version.caption||'',fileUrl:await signedAsset(admin,demand,version)})));
-      arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,reviewMode,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
+      const referenceDate=demand.publish_date||demand.delivered_at||demand.approved_at||demand.updated_at||null;
+      arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,reviewMode,referenceMonth:referenceDate?String(referenceDate).slice(0,7):null,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
     }
     return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts,monthlyPlans,notifications},{headers});
   }catch(error){
