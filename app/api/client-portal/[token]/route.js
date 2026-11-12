@@ -86,7 +86,7 @@ export async function GET(request,{params}){
       for(const item of planItems||[]){const withNames={...item,agency_suggestion:suggestions.get(item.id)||'',designerName:teamById.get(item.designer_id)||null,videomakerName:teamById.get(item.videomaker_id)||null};const list=itemsByPlan.get(item.plan_id)||[];list.push(withNames);itemsByPlan.set(item.plan_id,list)}
       monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,approvalDeadline:plan.approval_deadline||null,status:plan.status,sharedAt:plan.shared_at,clientRating:plan.client_rating,clientFeedback:plan.client_feedback,clientFeedbackAt:plan.client_feedback_at,items:itemsByPlan.get(plan.id)||[]}));
     }
-    const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['with_client','adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
+    const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,created_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['with_client','adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
     if(demandError)throw demandError;
     if((plans||[]).length){
       const planMonths=(plans||[]).map(plan=>String(plan.plan_month).slice(0,7)).sort();
@@ -161,7 +161,8 @@ export async function GET(request,{params}){
       }
       if(!visible.length)continue;
       const assets=await Promise.all(visible.map(async version=>({id:version.id,versionNumber:version.version_number,fileName:version.file_name,mimeType:version.mime_type,caption:version.caption||'',fileUrl:await signedAsset(admin,demand,version)})));
-      arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,reviewMode,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
+      const referenceDate=demand.publish_date||demand.delivered_at||demand.created_at||null;
+      arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,reviewMode,referenceMonth:referenceDate?String(referenceDate).slice(0,7):null,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
     }
     return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts,monthlyPlans,notifications},{headers});
   }catch(error){
