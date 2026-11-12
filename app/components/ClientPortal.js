@@ -10,6 +10,7 @@ const tabs=[['planejamento','Planejamento mensal'],['aguardando','Aguardando apr
 function monthTitle(v){return new Date(v.slice(0,7)+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
 function dateLabel(v){return v?new Date(v+'T12:00:00').toLocaleDateString('pt-BR'):'a definir'}
 function itemStatus(s){return ({pending:'Aguardando sua opinião',approved:'Ideia aprovada',changes_requested:'Sugestão enviada'})[s]||'Em planejamento'}
+const formatTone={'Carrossel':'format-carousel','Estático':'format-static','Storie':'format-story','Vídeo':'format-video'};
 function PortalArts({arts,tab,today,onDecision,working,error}){
  const visible=arts.filter(a=>category(a,today)===tab);
  const [selected,setSelected]=useState({}),[notes,setNotes]=useState({}),[compareSelected,setCompareSelected]=useState({}),[openComparison,setOpenComparison]=useState(null);
@@ -78,7 +79,7 @@ function MonthlyPlans({plans,clientName,notes,setNotes,working,respond,error,onE
     <header className="portalPlanHeader"><div><small>PROPOSTA DE PLANEJAMENTO</small><h2>{monthTitle(selectedPlan.planMonth)}</h2><p>{selectedPlan.items.length} {selectedPlan.items.length===1?'ideia proposta':'ideias propostas'}</p></div><button type="button" className="portalDownloadButton" onClick={()=>downloadMonthlyPlanPdf({clientName,month:selectedPlan.planMonth.slice(0,7),items:selectedPlan.items})}>Baixar planejamento em PDF</button></header>
     <aside className="portalApprovalDeadline" aria-label="Prazo para aprovação"><strong>Data prevista para aprovação: {dateLabel(selectedPlan.approvalDeadline)}</strong><p>Após a data prevista, a equipe da Avesso entende que não há necessidade de alterar o planejamento.</p></aside>
     <div className="portalPlanItems">{selectedPlan.items.map((item,index)=>(
-     <article className="portalPlanItem" key={item.id}>
+     <article className={'portalPlanItem '+(formatTone[item.format]||'')} key={item.id}>
       <div className="portalPlanItemHeading"><div><small>IDEIA {String(index+1).padStart(2,'0')}</small><h3>{item.title}</h3></div><span className={'portalPlanStatus status-'+item.status}>{itemStatus(item.status)}</span></div>
       {item.format&&<p className="portalPlanFormat">{item.format}</p>}
       {(item.designerName||item.videomakerName)&&<p className="portalPlanResponsibles">{item.designerName&&<>Designer: {item.designerName}</>}{item.designerName&&item.videomakerName?' · ':''}{item.videomakerName&&<>Videomaker: {item.videomakerName}</>}</p>}
