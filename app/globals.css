@@ -131,3 +131,12 @@
 .portalPlanEvaluationStatus{display:block;color:#716e66;font-size:11px}.portalEvaluationPending{border-color:#eadcae;background:#fff9e8}.portalEvaluationPending .portalEvaluationHeader small{color:#876a16}
 
 .monthlyAgencySuggestion,.portalAgencySuggestion{margin:12px 0;padding:12px 14px;border-left:3px solid #c7a72c;border-radius:8px;background:#fff9e8;color:#51491e;font-size:13px;line-height:1.55}.monthlyAgencySuggestion strong,.portalAgencySuggestion strong{display:block;color:#695719;font-size:12px}.monthlyAgencySuggestion p,.portalAgencySuggestion p{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0 0}
+/* Tons suaves ajudam o cliente a identificar cada formato no planejamento. */
+.format-carousel{--format-bg:#fff2ec;--format-border:#efc6b4;--format-accent:#b85437}
+.format-static{--format-bg:#eef5ec;--format-border:#c8dbc1;--format-accent:#507847}
+.format-story{--format-bg:#f3eff9;--format-border:#d8cbe9;--format-accent:#71539a}
+.format-video{--format-bg:#edf4f8;--format-border:#c7dce7;--format-accent:#3c718d}
+.monthlyItemCard[class*="format-"],.portalPlanItem[class*="format-"]{background:var(--format-bg);border-color:var(--format-border)}
+.monthlyItemCard[class*="format-"]{border-left:4px solid var(--format-accent)}
+.portalPlanItem[class*="format-"]{border:1px solid var(--format-border);border-left:4px solid var(--format-accent);border-radius:12px;padding:16px;margin:10px 0}
+.monthlyFormat,.portalPlanFormat{display:inline-block;padding:4px 9px;border:1px solid var(--format-border);border-radius:999px;background:#ffffffb8;color:var(--format-accent);font-weight:600}
