@@ -136,10 +136,15 @@
 .format-static{--format-bg:#eef5ec;--format-border:#c8dbc1;--format-accent:#507847}
 .format-story{--format-bg:#f3eff9;--format-border:#d8cbe9;--format-accent:#71539a}
 .format-video{--format-bg:#edf4f8;--format-border:#c7dce7;--format-accent:#3c718d}
-.monthlyItemCard[class*="format-"],.portalPlanItem[class*="format-"]{background:var(--format-bg);border-color:var(--format-border)}
-.monthlyItemCard[class*="format-"]{border-left:4px solid var(--format-accent)}
-.portalPlanItem[class*="format-"]{border:1px solid var(--format-border);border-left:4px solid var(--format-accent);border-radius:12px;padding:16px;margin:10px 0}
-.monthlyFormat,.portalPlanFormat{display:inline-block;padding:4px 9px;border:1px solid var(--format-border);border-radius:999px;background:#ffffffb8;color:var(--format-accent);font-weight:600}
+.monthlyFormat[class*="format-"],.portalPlanFormat[class*="format-"]{
+  display:inline-block;
+  padding:4px 9px;
+  border:1px solid var(--format-border);
+  border-radius:999px;
+  background:var(--format-bg);
+  color:var(--format-accent);
+  font-weight:600;
+}
 .portalMonthSelector{max-width:880px;margin:28px auto 64px;padding:28px;border:1px solid #e8e3d9;border-radius:18px;background:#fff}
 .portalMonthSelectorIntro{text-align:center;margin:0 auto 22px;max-width:560px}
 .portalMonthSelectorIntro small,.portalSelectedMonthBar small{font-size:10px;letter-spacing:.13em;color:#928675;font-weight:700}

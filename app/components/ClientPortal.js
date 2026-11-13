@@ -80,9 +80,9 @@ function MonthlyPlans({plans,initialPlanId,clientName,notes,setNotes,working,res
     <header className="portalPlanHeader"><div><small>PROPOSTA DE PLANEJAMENTO</small><h2>{monthTitle(selectedPlan.planMonth)}</h2><p>{selectedPlan.items.length} {selectedPlan.items.length===1?'ideia proposta':'ideias propostas'}</p></div><button type="button" className="portalDownloadButton" onClick={()=>downloadMonthlyPlanPdf({clientName,month:selectedPlan.planMonth.slice(0,7),items:selectedPlan.items})}>Baixar planejamento em PDF</button></header>
     <aside className="portalApprovalDeadline" aria-label="Prazo para aprovação"><strong>Data prevista para aprovação: {dateLabel(selectedPlan.approvalDeadline)}</strong><p>Após a data prevista, a equipe da Avesso entende que não há necessidade de alterar o planejamento.</p></aside>
     <div className="portalPlanItems">{selectedPlan.items.map((item,index)=>(
-     <article className={'portalPlanItem '+(formatTone[item.format]||'')} key={item.id}>
+     <article className="portalPlanItem" key={item.id}>
       <div className="portalPlanItemHeading"><div><small>IDEIA {String(index+1).padStart(2,'0')}</small><h3>{item.title}</h3></div><span className={'portalPlanStatus status-'+item.status}>{itemStatus(item.status)}</span></div>
-      {item.format&&<p className="portalPlanFormat">{item.format}</p>}
+      {item.format&&<p className={['portalPlanFormat',formatTone[item.format]].filter(Boolean).join(' ')}>{item.format}</p>}
       {(item.designerName||item.videomakerName)&&<p className="portalPlanResponsibles">{item.designerName&&<>Designer: {item.designerName}</>}{item.designerName&&item.videomakerName?' · ':''}{item.videomakerName&&<>Videomaker: {item.videomakerName}</>}</p>}
       {item.description&&<p className="portalPlanDescription">{item.description}</p>}
       {item.agency_suggestion&&<div className="portalAgencySuggestion"><strong>Sugestões da equipe Avesso</strong><p>{item.agency_suggestion}</p></div>}
