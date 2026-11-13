@@ -1,6 +1,6 @@
 import {authenticate,adminDb} from '../../../lib/r2-server';
 import {fail} from '../../../lib/upload-policy.mjs';
-import {createClientPortalToken,hashClientPortalToken} from '../../../lib/client-portal-token.mjs';
+import {clientPortalUrl,createClientPortalToken,hashClientPortalToken} from '../../../lib/client-portal-token.mjs';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -15,7 +15,7 @@ export async function POST(request){
     if(!body||!['issue','revoke'].includes(body.action)||typeof body.clientId!=='string')fail('Operação inválida.');
 
     const admin=adminDb();
-    const {data:client,error:clientError}=await admin.from('clients').select('id,organization_id').eq('id',body.clientId).maybeSingle();
+    const {data:client,error:clientError}=await admin.from('clients').select('id,name,organization_id').eq('id',body.clientId).maybeSingle();
     if(clientError)throw clientError;
     if(!client)fail('Cliente indisponível.',404);
 
@@ -30,10 +30,11 @@ export async function POST(request){
     }
 
     const token=createClientPortalToken();
+    const base=process.env.APP_URL||new URL(request.url).origin;
+    const url=clientPortalUrl(base,client.name,token);
     const {error}=await admin.from('client_portal_tokens').upsert({client_id:client.id,organization_id:client.organization_id,token_hash:hashClientPortalToken(token),created_at:new Date().toISOString(),revoked_at:null},{onConflict:'client_id'});
     if(error)throw error;
-    const base=process.env.APP_URL||new URL(request.url).origin;
-    return Response.json({url:new URL('/portal/'+token,base).toString()},{headers});
+    return Response.json({url},{headers});
   }catch(error){
     if(!error.status)console.error('AVESSO client portal link failed',{code:error.code||error.name});
     return Response.json({error:error.status?error.message:'Não foi possível atualizar o link do portal.'},{status:error.status||500,headers});
