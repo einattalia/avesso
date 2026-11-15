@@ -105,7 +105,7 @@ function Client360({client,ctx,tab,setTab,onBack,onClientUpdated}){
   if(confirmation!==client.name)return;
   setDeleting(true);setDeleteError('');
   try{const {error}=await supabase.from('clients').delete().eq('id',client.id).eq('organization_id',ctx.organization.id);if(error)throw error;onBack()}
-  catch(error){setDeleteError(error.message||'Não foi possível excluir o cliente. Arquive-o para preservar os dados vinculados.')}
+  catch(error){setDeleteError(error.code==='23503'?'Este cliente tem dados vinculados que impedem a exclusão. Arquive-o para preservar o histórico.':error.message||'Não foi possível excluir o cliente.')}
   finally{setDeleting(false)}
  }
  async function archiveClient(){
