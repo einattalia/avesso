@@ -161,3 +161,5 @@
 @media(max-width:760px){.portalMonthGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.portalMonthSelector{padding:20px}}
 @media(max-width:520px){.portalMonthGrid{grid-template-columns:1fr}.portalMonthSelector{margin:18px 0 40px;padding:16px}.portalMonthSelectorIntro h2{font-size:21px}.portalMonthOption{min-height:125px}.portalSelectedMonthBar{align-items:flex-start;flex-direction:column}.portalSelectedMonthBar>div{text-align:left}}
 
+
+.productionArtCard .uxCardBody .artMeta{display:block;font-size:13px;line-height:1.4;color:#59564b}.productionArtCard.collapsed .uxCardBody small.artResponsible{font-size:13px;line-height:1.4}.reorderHint{grid-column:1/-1;margin:0;color:#777;font-size:13px}
