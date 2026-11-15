@@ -163,3 +163,8 @@
 
 
 .productionArtCard .uxCardBody .artMeta{display:block;font-size:13px;line-height:1.4;color:#59564b}.productionArtCard.collapsed .uxCardBody small.artResponsible{font-size:13px;line-height:1.4}.reorderHint{grid-column:1/-1;margin:0;color:#777;font-size:13px}
+
+
+.clientDangerActions{margin-top:24px;padding-top:20px;border-top:1px solid #e7e4e0}.clientDangerActions h3{margin:0 0 6px;font-size:15px}.clientDangerActions p{margin:0 0 12px;color:#6b6963;font-size:12px;line-height:1.5}.clientDangerActions>div{display:flex;gap:16px;flex-wrap:wrap}.clientDangerActions button{min-height:42px;padding:8px 4px}
+.clientTopActions .clientPortalAccess>button{white-space:nowrap}
+@media(max-width:760px){.clientTopActions{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:8px;margin:10px 0 14px}.clientTopActions .back{margin:0;justify-self:start}.clientTopActions .clientPortalAccess,.clientTopActions .clientPortalAccess>button,.clientTopActions>button:not(.back){width:100%;justify-content:center}.clientTopActions .clientPortalAccess>button{white-space:nowrap}.clientDangerActions{padding-top:16px}.clientDangerActions>div{align-items:stretch;flex-direction:column;gap:4px}.clientDangerActions button{width:100%;justify-content:center}}
