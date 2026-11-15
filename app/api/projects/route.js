@@ -7,6 +7,7 @@ const headers={'Cache-Control':'private, no-store'};
 const checked=r=>{if(r.error)throw r.error;return r.data};
 const clean=(value,max)=>String(value??'').trim().slice(0,max);
 function dateValue(value){if(!value)return null;if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||new Date(`${value}T00:00:00.000Z`).toISOString().slice(0,10)!==value)fail('Data de prazo inválida.');return value;}
+function timeValue(value){if(!value)return null;if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))fail('Horário de publicação inválido.');return value;}
 
 export async function POST(request){
  try{
@@ -35,9 +36,9 @@ export async function POST(request){
    return Response.json({project},{status:201,headers});
   }
   const projectId=b.projectId;
-  if(!projectId)fail('Projeto inválido.');
-  const project=checked(await admin.from('production_projects').select('id,organization_id,client_id').eq('id',projectId).eq('organization_id',organizationId).maybeSingle());
-  if(!project||client&&project.client_id!==client.id)fail('Projeto indisponível.',404);
+  if(!projectId&&b.action!=='updateArt')fail('Projeto inválido.');
+  const project=projectId?checked(await admin.from('production_projects').select('id,organization_id,client_id').eq('id',projectId).eq('organization_id',organizationId).maybeSingle()):null;
+  if(projectId&&(!project||client&&project.client_id!==client.id))fail('Projeto indisponível.',404);
   if(b.action==='reorderArt'){
    const ids=Array.isArray(b.demandIds)?b.demandIds:[];
    const demandIds=[...new Set(ids)];
@@ -86,7 +87,11 @@ export async function POST(request){
    const title=clean(b.title,200);if(!title)fail('Dê um nome para esta arte.');
    let responsibleMemberId=null,responsibleName=clean(b.responsibleName,160)||null;
    if(b.responsibleMemberId){const member=checked(await admin.from('agency_team_members').select('id,name').eq('id',b.responsibleMemberId).eq('organization_id',organizationId).maybeSingle());if(!member)fail('Responsável indisponível nesta organização.',403);responsibleMemberId=member.id;responsibleName=member.name;}
-   const row=checked(await admin.from('demands').update({title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:responsibleName,responsible_member_id:responsibleMemberId,due_date:dateValue(b.dueDate)}).eq('id',b.demandId).eq('project_id',project.id).is('archived_at',null).select('id,project_id,title,type,briefing,notes,responsible_name,responsible_member_id,due_date').maybeSingle());
+   const artQuery=admin.from('demands').select('id,project_id,client_id').eq('id',b.demandId).eq('organization_id',organizationId).is('archived_at',null);
+   const art=checked(await (client?artQuery.eq('client_id',client.id):artQuery).maybeSingle());
+   if(!art||art.project_id!==(project?.id||null))fail('Arte indisponível.',404);
+   const publishDate=dateValue(b.publishDate),publishTime=publishDate?timeValue(b.publishTime):null;
+   const row=checked(await admin.from('demands').update({title,type:clean(b.type,80)||'Criativo estático',briefing:clean(b.briefing,20000)||null,notes:clean(b.notes,20000)||null,responsible_name:responsibleName,responsible_member_id:responsibleMemberId,due_date:dateValue(b.dueDate),publish_date:publishDate,publish_time:publishTime}).eq('id',b.demandId).eq('organization_id',organizationId).is('archived_at',null).select('id,project_id,title,type,briefing,notes,responsible_name,responsible_member_id,due_date,publish_date,publish_time').maybeSingle());
    if(!row)fail('Arte indisponível.',404);
    return Response.json({art:row},{headers});
   }
@@ -95,3 +100,4 @@ export async function POST(request){
   return Response.json({error:e.status?e.message:'Não foi possível concluir esta ação.'},{status:e.status||500,headers});
  }
 }
+
