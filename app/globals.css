@@ -188,3 +188,22 @@
 @page{size:A4;margin:0}
 @media print{body *{visibility:hidden!important}.clientReports .crPrint,.clientReports .crPrint *{visibility:visible!important}.clientReports .crPrint{display:block!important;position:fixed;inset:0 auto auto 0;width:210mm;color:#1b261e;font-family:Arial,sans-serif}.crPrintPage{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}.crPrintCover{background:#fff!important;color:#18261e!important}.crPrintCover .crPrintBrand{color:#49624c}.crPrintCover .crAccent{background:#5c7b3c}.crPrintHeader .crLogo{object-fit:contain}.crPrintPage .crChartSvg{width:100%;height:155pt}.crPrintBox,.crPrintMetricGrid>div,.crPrintStats>div{break-inside:avoid}.crPrintPage p,.crPrintPage div{overflow-wrap:anywhere}.crPreview,.crEditor{display:none!important}}
 
+
+/* Gráficos comparativos do relatório mensal. */
+.crChartGrid,.crPrintChartGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.crChartGrid .crChartCard{min-width:0;padding:12px}
+.crChartGrid .crChartCard>div:first-child{display:grid;gap:4px;min-height:34px}
+.crChartGrid .crChartCard span{max-width:none;text-align:left}
+.crChartGrid .crChartSvg{height:132px}
+.crChartSvg rect{fill:#789460}
+.crChartSvg rect.crNegativeBar{fill:#b96757}
+.crInsightGrid{grid-template-columns:repeat(auto-fit,minmax(115px,1fr))}
+.crPrintChartGrid{gap:8pt;margin-top:12pt}
+.crPrintChartGrid .crPrintChartCard{padding:8pt;border-radius:8pt}
+.crPrintChartGrid .crPrintChartCard>div:first-child{display:grid;gap:3pt;min-height:25pt}
+.crPrintChartGrid .crPrintChartCard strong{font-size:9pt}
+.crPrintChartGrid .crPrintChartCard span{max-width:none;text-align:left;font-size:7pt}
+.crPrintChartGrid .crChartSvg{height:82pt!important;margin-top:3pt}
+@media(max-width:600px){.crChartGrid{grid-template-columns:1fr}}
+@media print{.crPrintChartGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7pt}.crPrintChartGrid .crChartSvg{width:100%;height:82pt!important}.crPrintChartCard{break-inside:avoid}.crChartSvg rect{fill:#789460!important}.crChartSvg rect.crNegativeBar{fill:#b96757!important}}
+
