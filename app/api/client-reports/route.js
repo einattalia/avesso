@@ -9,7 +9,7 @@ const checked=result=>{if(result.error)throw result.error;return result.data};
 const monthOnly=report=>({...report,period:String(report.period).slice(0,7)});
 const defaultBranding={primary_color:'#ffc928',secondary_color:'#f18523'};
 const validColor=value=>typeof value==='string'&&/^#[0-9a-fA-F]{6}$/.test(value)?value.toLowerCase():null;
-const fieldLimits={followers_before:40,followers_after:40,publications:40,reach:40,views:40,interactions:40,clicks:40,new_audience:40,stories_views:40,reels_views:40,posts_views:40,summary:1200,analysis:2400,plan:1600,rating:40};
+const fieldLimits={followers_before:40,followers_after:40,publications:40,reach:40,views:40,interactions:40,clicks:40,new_audience:40,stories_views:40,reels_views:40,posts_views:40,summary:1200,analysis:2400,plan:1600,team_names:700,rating:40};
 function validPeriod(value){if(typeof value!=='string'||!/^(?:20\d{2}|2100)-(?:0[1-9]|1[0-2])$/.test(value))fail('Mês do relatório inválido.');return `${value}-01`}
 function cleanPayload(value){if(!value||typeof value!=='object'||Array.isArray(value))fail('Dados do relatório inválidos.');const payload={};for(const [key,max] of Object.entries(fieldLimits)){const field=value[key]??'';if(typeof field!=='string'&&typeof field!=='number')fail(`Campo ${key} inválido.`);const text=String(field).trim();if(text.length>max)fail(`Um dos campos ultrapassou o limite permitido.`);payload[key]=text}return payload}
 async function resolveAccess(request,clientId){
