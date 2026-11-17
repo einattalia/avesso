@@ -219,3 +219,9 @@
 
 /* Créditos da equipe do cliente no fechamento do relatório. */
 .crTeamCredits{margin:26px 0 6px}.crTeamCredits>small{display:block;margin-bottom:11px;color:var(--cr-primary);font-size:9pt;font-weight:800;letter-spacing:.12em}.crTeamCredits>div{display:flex;flex-wrap:wrap;gap:9px}.crTeamCredits span{display:inline-flex;align-items:center;min-height:36px;padding:7px 13px;border:1px solid #353531;border-radius:999px;background:#1a1a19;color:#f8f6ef;font-size:11pt;font-weight:750;line-height:1.2}.crSlideThanks .crThanksText{width:100%}.crSlideThanks .crThanksText>p{margin-top:19px}
+
+/* Impressão focada no relatório, sem layout oculto do portal antes da primeira página. */
+@media print{body *:has(.crPrint){display:contents!important}body *:not(:has(.crPrint)):not(.crPrint):not(.crPrint *){display:none!important}.clientReports>*:not(.crPrint){display:none!important}.clientReports .crPrint{display:block!important}}
+
+/* Páginas mais compactas e rótulos dos gráficos afastados das marcas de dados. */
+.crSlideLead{margin-bottom:14px}.crSlideMetricGrid{margin-top:16px}.crSlideFormatCard{padding:11px 13px!important}.crSlideFormatCard b{margin:5px 0!important;font-size:20pt!important}.crSlideFormatCard span{margin-top:6px!important;font-size:9pt!important}.crSlideFormatCard .crFormatTrack{height:6px}.crSlideTrendGrid>.crSlideFormatGrid{display:contents}.crSlideTrendGrid>.crSlideFormatGrid article{min-height:0}.crSlideTrendGrid .crChartSvg{height:125px!important;margin-top:5px!important}.crSlideTrendGrid .crChartCard{padding:10px}.crSlideTrendGrid .crChartCard>div:first-child{min-height:24px;gap:3px}
