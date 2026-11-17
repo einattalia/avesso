@@ -219,3 +219,23 @@
 
 /* Créditos da equipe do cliente no fechamento do relatório. */
 .crTeamCredits{margin:26px 0 6px}.crTeamCredits>small{display:block;margin-bottom:11px;color:var(--cr-primary);font-size:9pt;font-weight:800;letter-spacing:.12em}.crTeamCredits>div{display:flex;flex-wrap:wrap;gap:9px}.crTeamCredits span{display:inline-flex;align-items:center;min-height:36px;padding:7px 13px;border:1px solid #353531;border-radius:999px;background:#1a1a19;color:#f8f6ef;font-size:11pt;font-weight:750;line-height:1.2}.crSlideThanks .crThanksText{width:100%}.crSlideThanks .crThanksText>p{margin-top:19px}
+
+/* Impressão focada no relatório, sem layout oculto do portal antes da primeira página. */
+@media print{body *:has(.crPrint){display:contents!important}body *:not(:has(.crPrint)):not(.crPrint):not(.crPrint *){display:none!important}.clientReports>*:not(.crPrint){display:none!important}.clientReports .crPrint{display:block!important}}
+
+/* Páginas mais compactas e rótulos dos gráficos afastados das marcas de dados. */
+.crSlideLead{margin-bottom:14px}.crSlideMetricGrid{margin-top:16px}.crSlideFormatCard{padding:11px 13px!important}.crSlideFormatCard b{margin:5px 0!important;font-size:20pt!important}.crSlideFormatCard span{margin-top:6px!important;font-size:9pt!important}.crSlideFormatCard .crFormatTrack{height:6px}.crSlideTrendGrid>.crSlideFormatGrid{display:contents}.crSlideTrendGrid>.crSlideFormatGrid article{min-height:0}.crSlideTrendGrid .crChartSvg{height:125px!important;margin-top:5px!important}.crSlideTrendGrid .crChartCard{padding:10px}.crSlideTrendGrid .crChartCard>div:first-child{min-height:24px;gap:3px}
+
+.portalMonthlyReport{display:grid;gap:14px;min-width:0}
+.portalMonthlyReportHead{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid #e8e3d9;border-radius:14px;background:#fff}
+.portalMonthlyReportHead>div{display:grid;gap:5px}
+.portalMonthlyReportHead small{color:#887b67;font-size:10px;font-weight:800;letter-spacing:.13em}
+.portalMonthlyReportHead h2{margin:0;text-transform:capitalize}
+.portalMonthlyReportHead p{margin:0;color:#77746d;font-size:13px}
+.portalMonthlyReportStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.portalMonthlyReportStats article,.portalMonthlyReportText{min-width:0;padding:14px;border:1px solid #e8e3d9;border-radius:12px;background:#fff}
+.portalMonthlyReportStats small{display:block;color:#858177;font-size:10px;font-weight:700}
+.portalMonthlyReportStats strong{display:block;margin-top:5px;overflow-wrap:anywhere;font-size:20px}
+.portalMonthlyReportText strong{font-size:12px}
+.portalMonthlyReportText p{margin:6px 0 0;color:#55524b;font-size:13px;line-height:1.55;white-space:pre-wrap}
+@media(max-width:640px){.portalMonthlyReportHead{align-items:flex-start;flex-direction:column}.portalMonthlyReportStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
