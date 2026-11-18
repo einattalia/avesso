@@ -7,7 +7,7 @@ O botão aparece no cabeçalho do Cliente 360°. Cada conexão é autorizada pel
 1. Crie ou selecione o aplicativo Meta da Avesso.
 2. Adicione o produto **Instagram** e configure **Instagram API with Instagram Login / Business Login for Instagram**.
 3. Cadastre esta URI de redirecionamento, exatamente:
-   `https://avesso-seven.vercel.app/api/instagram/callback`
+   `https://portalavesso.com.br/api/instagram/callback`
 4. Solicite os escopos mínimos usados para leitura de conta e insights:
    - `instagram_business_basic`
    - `instagram_business_manage_insights`
@@ -19,7 +19,7 @@ O Instagram conectado precisa ser uma conta profissional Business ou Creator.
 
 Configure estas variáveis no ambiente de produção e nos previews que serão usados para testar:
 
-- `APP_URL=https://avesso-seven.vercel.app`
+- `APP_URL=https://portalavesso.com.br`
 - `META_INSTAGRAM_APP_ID`: ID do aplicativo Meta.
 - `META_INSTAGRAM_APP_SECRET`: segredo do aplicativo; mantenha no servidor, sem prefixo `NEXT_PUBLIC_`.
 - `INSTAGRAM_STATE_SECRET`: segredo aleatório para assinar o estado OAuth.
