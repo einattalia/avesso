@@ -26,20 +26,20 @@ export async function POST(request){
  try{
   const {db,user}=await authenticate(request),body=await request.json(),client=await agencyClient(db,user,body.clientId);
   if(body.action!=='connect')return json({error:'Operação inválida.'},400);
-  const appId=process.env.META_INSTAGRAM_APP_ID,secret=process.env.META_INSTAGRAM_APP_SECRET,stateSecret=process.env.INSTAGRAM_STATE_SECRET,appUrl=process.env.APP_URL;
-  if(!appId||!secret||!stateSecret||!appUrl||!process.env.INSTAGRAM_TOKEN_ENCRYPTION_KEY)return json({error:'Conexão ainda não configurada. Cadastre as credenciais do aplicativo da Meta e as chaves de proteção no Vercel.'},503);
+  const appId=process.env.META_INSTAGRAM_APP_ID,configId=process.env.META_INSTAGRAM_CONFIG_ID,secret=process.env.META_INSTAGRAM_APP_SECRET,stateSecret=process.env.INSTAGRAM_STATE_SECRET,appUrl=process.env.APP_URL;
+  if(!appId||!configId||!secret||!stateSecret||!appUrl||!process.env.INSTAGRAM_TOKEN_ENCRYPTION_KEY)return json({error:'Conexão ainda não configurada. Cadastre as credenciais do aplicativo da Meta, o ID da configuração de login e as chaves de proteção no Vercel.'},503);
   let base;try{base=new URL(appUrl)}catch{return json({error:'APP_URL inválida.'},503)}
   if(!['https:','http:'].includes(base.protocol)||(base.protocol==='http:'&&!['localhost','127.0.0.1'].includes(base.hostname)))return json({error:'APP_URL precisa usar HTTPS.'},503);
   const redirectUri=new URL('/api/instagram/callback',base).toString();
   const state=createInstagramState({clientId:client.id,organizationId:client.organization_id,userId:user.id,exp:Date.now()+10*60*1000},stateSecret);
-  const authUrl=new URL('https://www.instagram.com/oauth/authorize');
+  const authUrl=new URL('https://www.facebook.com/dialog/oauth');
   authUrl.searchParams.set('client_id',appId);
+  authUrl.searchParams.set('config_id',configId);
+  authUrl.searchParams.set('display','popup');
   authUrl.searchParams.set('redirect_uri',redirectUri);
   authUrl.searchParams.set('response_type','code');
-  authUrl.searchParams.set('scope','instagram_business_basic,instagram_business_manage_insights');
+  authUrl.searchParams.set('override_default_response_type','true');
   authUrl.searchParams.set('state',state);
-  authUrl.searchParams.set('enable_fb_login','0');
-  authUrl.searchParams.set('force_authentication','1');
   return json({url:authUrl.toString()});
  }catch(error){return errorResponse(error)}
 }
