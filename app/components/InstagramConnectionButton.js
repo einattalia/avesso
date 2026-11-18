@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
-import {Instagram,LoaderCircle,Unplug} from 'lucide-react';
+import {Camera,LoaderCircle,Unplug} from 'lucide-react';
 
 export default function InstagramConnectionButton({supabase,client}){
  const [connection,setConnection]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
@@ -41,7 +41,7 @@ export default function InstagramConnectionButton({supabase,client}){
  const expired=connection?.token_expires_at&&new Date(connection.token_expires_at).getTime()<Date.now();
  return <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
   <button type="button" className="secondary" onClick={connect} disabled={busy}>
-   {busy?<LoaderCircle size={15} className="spin"/>:<Instagram size={15}/>}
+   {busy?<LoaderCircle size={15} className="spin"/>:<Camera size={15}/>}
    {busy?'Conectando…':connection?(expired?'Reconectar Instagram':'Instagram conectado'):'Conectar Instagram'}
   </button>
   {connection&&!expired&&<span style={{fontSize:12,color:'var(--muted,#667085)'}}>@{connection.username}{connection.account_type?' · '+connection.account_type.toLowerCase().replace('_',' '):''}</span>}
