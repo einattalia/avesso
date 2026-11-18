@@ -53,7 +53,7 @@ export async function POST(request) {
     const raw=await request.text(); if(raw.length>262144) fail('Solicitação muito grande.',413);
     let b; try {b=JSON.parse(raw);} catch {fail('Solicitação inválida.');}
     if (!b || typeof b!=='object') fail('Solicitação inválida.');
-    const allowed=['list','saveText','read','init','resume','part','abort','complete'];
+    const allowed=['list','saveText','read','preview','init','resume','part','abort','complete'];
     operation=allowed.includes(b.action)?b.action:'invalid';
     if(b.scope && !['demand','contract','briefing'].includes(b.scope)) fail('Área de arquivo inválida.');
     const isBriefing=b.scope==='briefing';
@@ -65,7 +65,7 @@ export async function POST(request) {
     const sessionTable=isBriefing?'briefing_upload_sessions':isContract?'contract_upload_sessions':'r2_upload_sessions';
     const targetColumn=isBriefing?'client_id':isContract?'contract_id':'demand_id';
     const access=isBriefing?briefingAccess:isContract?contractAccess:demandAccess;
-    if(isDocument && ['list','saveText','read'].includes(b.action)) {
+    if(isDocument && ['list','saveText','read','preview'].includes(b.action)) {
       await access(db,user,targetId);
       // Text and attachments are served only after checking the existing contract RLS and organization membership.
       if(!process.env.SUPABASE_SERVICE_ROLE_KEY) fail('Documentos de contratos ainda não configurados.',503);
@@ -87,11 +87,13 @@ export async function POST(request) {
       }
       const {data:f,error}=await admin.from(filesTable).select('*').eq('id',b.fileId).eq(targetColumn,targetId).maybeSingle();
       if(error||!f) fail('Anexo indisponível.',404);
+      if(b.action==='preview'&&f.mime_type!=='application/pdf'&&!f.mime_type.startsWith('image/'))fail('Este tipo de arquivo não pode ser exibido em prévia.',415);
       const {data:trusted}=await admin.from(sessionTable).select('id').eq('id',f.id).eq(targetColumn,targetId).eq('state','completed').maybeSingle();
       if(!trusted) fail('Anexo não finalizado.',404);
       const {s3,bucket}=config();
       if(f.bucket!==bucket) fail('O bucket do anexo foi alterado.',409);
-      const url=await getSignedUrl(s3,new GetObjectCommand({Bucket:bucket,Key:f.storage_path,ResponseCacheControl:'private, no-store',ResponseContentDisposition:`attachment; filename*=UTF-8''${encodeURIComponent(f.file_name)}`}),{expiresIn:900});
+      const disposition=`${b.action==='preview'?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(f.file_name)}`;
+      const url=await getSignedUrl(s3,new GetObjectCommand({Bucket:bucket,Key:f.storage_path,ResponseCacheControl:'private, no-store',ResponseContentDisposition:disposition}),{expiresIn:900});
       return Response.json({url},{headers});
     }
     if (b.action==='read') {

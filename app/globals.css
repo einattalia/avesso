@@ -239,3 +239,22 @@
 .portalMonthlyReportText strong{font-size:12px}
 .portalMonthlyReportText p{margin:6px 0 0;color:#55524b;font-size:13px;line-height:1.55;white-space:pre-wrap}
 @media(max-width:640px){.portalMonthlyReportHead{align-items:flex-start;flex-direction:column}.portalMonthlyReportStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Anexos privados usados pela equipe para comparar resultados do cliente. */
+.crAttachmentEditor{display:grid;gap:10px;margin-top:14px;padding:14px;border:1px solid #e8e3d9;border-radius:12px;background:#fbfaf7}
+.crAttachmentHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.crAttachmentHead>div{display:grid;gap:4px}.crAttachmentHead strong{font-size:12px}.crAttachmentHead span,.crAttachmentHint{color:#817b70;font-size:10px;line-height:1.45}
+.crAttachmentUpload{position:relative;display:inline-flex;align-items:center;gap:7px;flex:none;padding:9px 12px;border:1px solid #ded8cc;border-radius:9px;background:#fff;color:#4d473d;font-size:11px;font-weight:700;cursor:pointer}
+.crAttachmentUpload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.crAttachmentUpload:has(input:disabled){opacity:.6;cursor:wait}
+.crAttachmentError{margin:0;color:#9a4036;font-size:11px}
+.crAttachmentGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:9px}
+.crAttachmentCard{position:relative;min-width:0;overflow:hidden;border:1px solid #e4dfd6;border-radius:10px;background:#fff}
+.crAttachmentPreview{display:grid;place-items:center;height:110px;background:#f1efe9}
+.crAttachmentPreview>a{display:grid;place-items:center;gap:6px;width:100%;height:100%;color:#746443;font-size:10px;text-decoration:none}
+.crAttachmentPreview img{display:block;width:100%;height:110px;object-fit:cover}
+.crAttachmentMeta{display:grid;gap:4px;min-width:0;padding:8px 33px 9px 9px}
+.crAttachmentMeta strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.crAttachmentMeta small{color:#817b70;font-size:9px}
+.crAttachmentRemove{position:absolute;right:6px;bottom:7px;display:grid;place-items:center;width:25px;height:25px;border:1px solid #e4dfd6;border-radius:7px;background:#fff;color:#746443;cursor:pointer}
+.crAttachmentRemove:disabled{opacity:.5;cursor:wait}
+@media(max-width:600px){.crAttachmentHead{align-items:flex-start;flex-direction:column}.crAttachmentUpload{width:100%;justify-content:center}.crAttachmentGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
