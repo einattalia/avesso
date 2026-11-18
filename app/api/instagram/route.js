@@ -36,7 +36,7 @@ export async function POST(request){
   authUrl.searchParams.set('client_id',appId);
   authUrl.searchParams.set('redirect_uri',redirectUri);
   authUrl.searchParams.set('response_type','code');
-  authUrl.searchParams.set('scope','instagram_business_basic');
+  authUrl.searchParams.set('scope','instagram_business_basic,instagram_business_manage_insights');
   authUrl.searchParams.set('state',state);
   authUrl.searchParams.set('enable_fb_login','0');
   authUrl.searchParams.set('force_authentication','1');
