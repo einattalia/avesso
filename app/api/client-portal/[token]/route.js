@@ -73,6 +73,7 @@ export async function GET(request,{params}){
       admin.from('client_report_branding').select('logo_path,primary_color,secondary_color').eq('organization_id',client.organization_id).eq('client_id',client.id).maybeSingle()
     ]);
     if(reportsError||brandingError)throw reportsError||brandingError;
+    const publicMonthlyReports=(monthlyReports||[]).map(report=>{const payload={...(report.payload||{})};delete payload.attachments;return {...report,payload}});
     let reportLogoUrl=null;
     if(savedReportBranding?.logo_path){
       try{const {data:logo}=await admin.storage.from('avesso-profile-images').createSignedUrl(savedReportBranding.logo_path,3600);reportLogoUrl=logo?.signedUrl||null}catch{}
@@ -112,7 +113,7 @@ export async function GET(request,{params}){
       .in('to_status',['with_client','approved','adjustments']).order('created_at',{ascending:false}).limit(50);
     if(activityError)throw activityError;
     const notifications=(activity||[]).map(event=>({id:event.id,demandId:event.demand_id,status:event.to_status,createdAt:event.created_at,title:event.demand?.title||'Arte'}));
-    if(!ids.length)return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts:[],monthlyPlans,monthlyReports:monthlyReports||[],reportBranding,notifications},{headers});
+    if(!ids.length)return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts:[],monthlyPlans,monthlyReports:publicMonthlyReports,reportBranding,notifications},{headers});
     const [{data:versions,error:versionsError},{data:sets,error:setsError}]=await Promise.all([
       admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption,approval_option_set_id,removed_at').in('demand_id',ids).in('status',['sent_for_review','approved','changes_requested']).is('removed_at',null).order('version_number',{ascending:true}),
       admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode,review_note,created_at').in('demand_id',ids).in('state',['pending','selected','changes_requested']).order('created_at',{ascending:false})
@@ -174,7 +175,7 @@ export async function GET(request,{params}){
       const referenceDate=demand.publish_date||demand.delivered_at||demand.approved_at||demand.updated_at||null;
       arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,reviewMode,referenceMonth:referenceDate?String(referenceDate).slice(0,7):null,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
     }
-    return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts,monthlyPlans,monthlyReports:monthlyReports||[],reportBranding,notifications},{headers});
+    return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts,monthlyPlans,monthlyReports:publicMonthlyReports,reportBranding,notifications},{headers});
   }catch(error){
     if(!error.status)console.error('AVESSO client portal read failed',{code:error.code||error.name});
     return reply({error:error.status?error.message:'Não foi possível carregar o portal.'},error.status||500);
