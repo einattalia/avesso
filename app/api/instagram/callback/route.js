@@ -34,8 +34,9 @@ async function exchange(code,redirectUri){
  tokenUrl.searchParams.set('client_secret',secret);
  tokenUrl.searchParams.set('redirect_uri',redirectUri);
  tokenUrl.searchParams.set('code',code);
- const tokenData=await graphGet(tokenUrl,'');
- if(!tokenData.access_token)throw new Error('authorization exchange failed');
+ const tokenResponse=await fetch(tokenUrl,{cache:'no-store'});
+ const tokenData=await tokenResponse.json();
+ if(!tokenResponse.ok||tokenData.error||!tokenData.access_token)throw new Error('authorization exchange failed');
  const me=await graphGet(graphUrl('me?fields=id'),tokenData.access_token);
  if(!me.id)throw new Error('system user lookup failed');
  const accounts=await graphGet(graphUrl(`${encodeURIComponent(me.id)}/assigned_instagram_accounts?fields=id,username`),tokenData.access_token);
