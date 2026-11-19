@@ -116,7 +116,7 @@ function PortalMonthlyReport({report,clientName,branding,month}){
   </div>
  </section>
 }
-export default function PortalIdeas({items,token,onRefresh,onBack}){
+function PortalIdeas({items,token,onRefresh,onBack}){
  const [title,setTitle]=useState(''),[idea,setIdea]=useState(''),[link,setLink]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState('');
  async function send(payload){const r=await fetch('/api/client-portal/'+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const b=await r.json();if(!r.ok)throw new Error(b.error||'Não foi possível salvar sua ideia.');return b}
  async function create(event){event.preventDefault();setBusy('new');setError('');setMessage('');try{await send({decision:'createIdea',title,idea,link});setTitle('');setIdea('');setLink('');await onRefresh();setMessage('Ideia enviada para a equipe Avesso.')}catch(e){setError(e.message)}finally{setBusy('')}}
