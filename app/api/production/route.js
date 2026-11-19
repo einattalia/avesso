@@ -18,10 +18,21 @@ export async function POST(request) {
     const {db,user}=await authenticate(request);
     const raw=await request.text();if(raw.length>32768)fail('Solicitação muito grande.',413);
     let b;try{b=JSON.parse(raw)}catch{fail('Solicitação inválida.')}
-    if(!b||!['send','sendOptions','deliver','status','approve','changes','notifications','retryNotification','history','approvalLink'].includes(b.action))fail('Operação inválida.');
+    if(!b||!['send','sendOptions','deliver','status','approve','changes','notifications','retryNotification','history','approvalLink','removeDraft'].includes(b.action))fail('Operação inválida.');
     const {agency}=await demandAccess(db,user,b.demandId,!['approve','changes'].includes(b.action));
     if(!process.env.SUPABASE_SERVICE_ROLE_KEY)fail('Fluxo de produção ainda não configurado.',503);
     const admin=adminDb();
+    if(b.action==='removeDraft') {
+      if(!agency)fail('Somente a equipe pode excluir artes.',403);
+      if(typeof b.versionId!=='string'||!b.versionId)fail('Selecione a arte que deseja excluir.');
+      const {data:deleted,error}=await admin.from('demand_versions').delete()
+        .eq('id',b.versionId).eq('demand_id',b.demandId)
+        .eq('status','draft').is('approval_option_set_id',null)
+        .select('id').maybeSingle();
+      if(error)throw error;
+      if(!deleted)fail('A arte já foi removida ou está vinculada a uma aprovação.',409);
+      return Response.json({notice:{message:'Arte removida do card.'}},{headers});
+    }
     if(b.action==='approvalLink') {
       if(!agency)fail('Somente a agência pode compartilhar o link de aprovação.',403);
       const {data:demand,error:demandError}=await admin.from('demands').select('id,client_id,status,archived_at').eq('id',b.demandId).maybeSingle();
