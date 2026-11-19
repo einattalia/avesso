@@ -5,7 +5,7 @@ create table if not exists public.client_materials (
  id uuid primary key default gen_random_uuid(),client_id uuid not null references public.clients(id),
  section text not null check(section in ('references','branding')),title text not null,body text not null default '',
  link text not null default '',category text not null default 'Ideia',state text not null default 'Para avaliar',shared boolean not null default false,
- author_id uuid not null references auth.users(id),created_at timestamptz not null default now(),updated_at timestamptz not null default now()
+ author_id uuid references auth.users(id),created_at timestamptz not null default now(),updated_at timestamptz not null default now()
 );
 create table if not exists public.client_material_history (
  id uuid primary key default gen_random_uuid(),material_id uuid not null references public.client_materials(id),snapshot jsonb not null,created_at timestamptz not null default now()

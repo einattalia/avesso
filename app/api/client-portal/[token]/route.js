@@ -1,6 +1,7 @@
 import {adminDb,config} from '../../../../lib/r2-server';
 import {fail} from '../../../../lib/upload-policy.mjs';
 import {hashClientPortalToken} from '../../../../lib/client-portal-token.mjs';
+import {safeLink,textValue} from '../../../../lib/workspace-policy.mjs';
 import {GetObjectCommand} from '@aws-sdk/client-s3';
 import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 
@@ -12,6 +13,21 @@ const evaluationFinishedStatuses=new Set(['posted','delivered','approved','await
 function brazilToday(){const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const values=Object.fromEntries(parts.filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));return `${values.year}-${values.month}-${values.day}`}
 function nextMonthStart(value){const [year,month]=String(value||'').slice(0,7).split('-').map(Number);return new Date(Date.UTC(year,month,1)).toISOString().slice(0,10)}
 function monthlyEvaluationProgress(demands,planMonth){const month=String(planMonth||'').slice(0,7),items=(demands||[]).filter(demand=>demand.publish_date&&String(demand.publish_date).slice(0,7)===month),lastPublishDate=items.reduce((latest,demand)=>!latest||demand.publish_date>latest?demand.publish_date:latest,null),today=brazilToday();return {evaluationAvailable:items.length>0&&items.every(demand=>demand.publish_date<=today&&evaluationFinishedStatuses.has(demand.status)),lastPublishDate}}
+
+
+async function loadSharedReferences(admin,client){
+  const {data:items,error}=await admin.from('client_materials').select('id,title,body,link,category,state,updated_at,author_id').eq('client_id',client.id).eq('section','references').eq('shared',true).order('updated_at',{ascending:false}).limit(100);
+  if(error)throw error;
+  const ids=(items||[]).map(item=>item.id);let assetsByMaterial=new Map();
+  if(ids.length){
+    const {data:assets,error:assetsError}=await admin.from('client_assets').select('id,subject_id,file_name,mime_type,file_size,bucket,object_key').eq('client_id',client.id).eq('subject_type','material').eq('purpose','reference').eq('ready',true).in('subject_id',ids);
+    if(assetsError)throw assetsError;
+    if((assets||[]).length){const {s3,bucket}=config();
+      for(const asset of assets||[]){if(asset.bucket!==bucket)continue;const list=assetsByMaterial.get(asset.subject_id)||[];list.push({id:asset.id,fileName:asset.file_name,mimeType:asset.mime_type,fileSize:asset.file_size,url:await getSignedUrl(s3,new GetObjectCommand({Bucket:bucket,Key:asset.object_key,ResponseContentDisposition:`inline; filename*=UTF-8''${encodeURIComponent(asset.file_name)}`}),{expiresIn:600})});assetsByMaterial.set(asset.subject_id,list)}
+    }
+  }
+  return (items||[]).map(item=>({id:item.id,title:item.title,body:item.body,link:item.link,category:item.category,state:item.state,updatedAt:item.updated_at,fromClient:item.author_id===null,assets:assetsByMaterial.get(item.id)||[]}));
+}
 
 async function signedAsset(admin,demand,version){
   if(version.storage_provider==='r2'){
@@ -97,6 +113,7 @@ export async function GET(request,{params}){
       for(const item of planItems||[]){const withNames={...item,agency_suggestion:suggestions.get(item.id)||'',designerName:teamById.get(item.designer_id)||null,videomakerName:teamById.get(item.videomaker_id)||null};const list=itemsByPlan.get(item.plan_id)||[];list.push(withNames);itemsByPlan.set(item.plan_id,list)}
       monthlyPlans=(plans||[]).map(plan=>({id:plan.id,planMonth:plan.plan_month,approvalDeadline:plan.approval_deadline||null,status:plan.status,sharedAt:plan.shared_at,clientRating:plan.client_rating,clientFeedback:plan.client_feedback,clientFeedbackAt:plan.client_feedback_at,items:itemsByPlan.get(plan.id)||[]}));
     }
+    const references=await loadSharedReferences(admin,client);
     const {data:demands,error:demandError}=await admin.from('demands').select('id,title,type,status,publish_date,publish_time,approved_at,delivered_at,updated_at').eq('organization_id',client.organization_id).eq('client_id',client.id).is('archived_at',null).in('status',['with_client','adjustments','approved','awaiting_scheduling','scheduled','delivered','posted']).order('publish_date',{ascending:true,nullsFirst:false});
     if(demandError)throw demandError;
     if((plans||[]).length){
@@ -113,7 +130,7 @@ export async function GET(request,{params}){
       .in('to_status',['with_client','approved','adjustments']).order('created_at',{ascending:false}).limit(50);
     if(activityError)throw activityError;
     const notifications=(activity||[]).map(event=>({id:event.id,demandId:event.demand_id,status:event.to_status,createdAt:event.created_at,title:event.demand?.title||'Arte'}));
-    if(!ids.length)return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts:[],monthlyPlans,monthlyReports:publicMonthlyReports,reportBranding,notifications},{headers});
+    if(!ids.length)return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts:[],references,monthlyPlans,monthlyReports:publicMonthlyReports,reportBranding,notifications},{headers});
     const [{data:versions,error:versionsError},{data:sets,error:setsError}]=await Promise.all([
       admin.from('demand_versions').select('id,demand_id,version_number,status,file_name,file_size,mime_type,storage_path,storage_provider,caption,approval_option_set_id,removed_at').in('demand_id',ids).in('status',['sent_for_review','approved','changes_requested']).is('removed_at',null).order('version_number',{ascending:true}),
       admin.from('approval_option_sets').select('id,demand_id,state,selected_version_id,review_mode,review_note,created_at').in('demand_id',ids).in('state',['pending','selected','changes_requested']).order('created_at',{ascending:false})
@@ -175,7 +192,7 @@ export async function GET(request,{params}){
       const referenceDate=demand.publish_date||demand.delivered_at||demand.approved_at||demand.updated_at||null;
       arts.push({id:demand.id,title:demand.title,type:demand.type,status:demand.status,reviewMode,referenceMonth:referenceDate?String(referenceDate).slice(0,7):null,publishDate:demand.publish_date||null,publishTime:demand.publish_time||null,approvedAt:demand.approved_at||null,deliveredAt:demand.delivered_at||null,reviewNote,assets});
     }
-    return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts,monthlyPlans,monthlyReports:publicMonthlyReports,reportBranding,notifications},{headers});
+    return Response.json({clientId:client.id,clientName:client.name,clientLogoUrl,arts,references,monthlyPlans,monthlyReports:publicMonthlyReports,reportBranding,notifications},{headers});
   }catch(error){
     if(!error.status)console.error('AVESSO client portal read failed',{code:error.code||error.name});
     return reply({error:error.status?error.message:'Não foi possível carregar o portal.'},error.status||500);
@@ -188,7 +205,7 @@ export async function POST(request,{params}){
     let digest;try{digest=hashClientPortalToken(token)}catch{fail('Este link do portal é inválido ou foi revogado.',404)}
     const raw=await request.text();if(raw.length>32768)fail('Solicitação muito grande.',413);
     let body;try{body=JSON.parse(raw)}catch{fail('Solicitação inválida.')}
-    if(!body||!['approve','changes','evaluate','approveArt','requestArtChanges'].includes(body.decision))fail('Decisão inválida.');
+    if(!body||!['approve','changes','evaluate','approveArt','requestArtChanges','createIdea','deleteIdea'].includes(body.decision))fail('Decisão inválida.');
     const note=typeof body.note==='string'?body.note.trim():'';
     if(['changes','requestArtChanges'].includes(body.decision)&&note.length<3)fail('Descreva os ajustes necessários (de 3 a 20.000 caracteres).');
     if(note.length>20000)fail('O comentário deve ter até 20.000 caracteres.');
@@ -196,6 +213,22 @@ export async function POST(request,{params}){
     const {data:access,error:accessError}=await admin.from('client_portal_tokens').select('client_id,organization_id,revoked_at').eq('token_hash',digest).maybeSingle();
     if(accessError)throw accessError;
     if(!access||access.revoked_at)fail('Este link do portal é inválido ou foi revogado.',404);
+    if(body.decision==='createIdea'){
+      if(typeof body.title!=='string'||!body.title.trim()||body.title.trim().length>200)fail('Informe um título de até 200 caracteres.');
+      if(typeof body.idea!=='string'||!body.idea.trim()||body.idea.trim().length>20000)fail('Escreva sua ideia em até 20.000 caracteres.');
+      let link='';try{link=safeLink(typeof body.link==='string'?body.link.trim():'')}catch{fail('Informe um link http ou https válido.')}
+      const row={client_id:access.client_id,section:'references',title:textValue(body.title,200),body:textValue(body.idea,20000),link,category:'Ideia do cliente',state:'Para avaliar',shared:true,author_id:null};
+      const {data:item,error:itemError}=await admin.from('client_materials').insert(row).select('id').single();if(itemError)throw itemError;
+      return reply({saved:true,id:item.id});
+    }
+    if(body.decision==='deleteIdea'){
+      if(typeof body.ideaId!=='string')fail('Ideia inválida.');
+      const {data:item,error:itemError}=await admin.from('client_materials').select('id').eq('id',body.ideaId).eq('client_id',access.client_id).eq('section','references').eq('shared',true).is('author_id',null).maybeSingle();
+      if(itemError)throw itemError;if(!item)fail('Esta ideia não está disponível para exclusão.',404);
+      const {data:deleted,error:deleteError}=await admin.from('client_materials').delete().eq('id',item.id).eq('client_id',access.client_id).is('author_id',null).select('id').maybeSingle();
+      if(deleteError)throw deleteError;if(!deleted)fail('A ideia foi atualizada. Recarregue e tente novamente.',409);
+      return reply({deleted:true});
+    }
     if(['approveArt','requestArtChanges'].includes(body.decision)){
       if(typeof body.demandId!=='string')fail('Arte inválida.');
       if(body.versionId!==null&&body.versionId!==undefined&&typeof body.versionId!=='string')fail('Opção de arte inválida.');
