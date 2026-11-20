@@ -351,4 +351,5 @@
 .productionArtCard.agencyProduction.collapsed .artCardToolbar{margin-top:auto}
 .artCardToolbar .artQuickEdit,.artCardToolbar .artShowMore{align-self:auto;display:inline-flex;align-items:center;justify-content:center;min-height:32px!important;padding:6px 10px!important;border:0;border-radius:8px;background:#111;color:#fff;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap}
 .artCardToolbar .artShowMore{margin:0;cursor:pointer}
+.productionArtCard.agencyProduction.collapsed .artCardToolbar .artShowMore{margin:0}
 .artCardToolbar .artQuickEdit:hover,.artCardToolbar .artShowMore:hover{background:#333;color:#fff}
