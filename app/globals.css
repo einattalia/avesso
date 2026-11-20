@@ -303,3 +303,37 @@
 .portalArtCardCarousel .portalVideoButtonCarousel video{width:100%;height:100%;max-height:none;object-fit:contain}
 .portalVideoPlay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:16px;padding-left:3px;pointer-events:none}
 .portalStatus.waiting{background:#fff4cf;color:#735a00}.portalStatus.changes{background:#fff0ed;color:#963d2b}.portalStatus.confirmed{background:#e5f4e9;color:#28643c}
+
+
+/* Client cards share a compact height; clicking the title opens the full approval detail. */
+.portalArtGrid>.portalArtCard{height:340px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+.portalArtGrid .portalArtHeading{flex:none}
+.portalArtTitleButton{display:block;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;font:inherit;font-weight:inherit;cursor:pointer}
+.portalArtTitleButton:hover{text-decoration:underline;text-underline-offset:3px}
+.portalArtGrid .portalPublishDate{flex:none;margin:8px 0;font-size:11px}
+.portalArtGrid .portalArtCard .portalAssets{flex:1;min-height:0;overflow-y:auto;align-content:start;grid-auto-rows:min-content;margin-top:8px}
+.portalArtGrid .portalArtCard .portalAsset>p{display:none}
+.portalArtGrid .portalArtCard:not(.portalArtCardCarousel) .portalImageLink img{height:104px;max-height:104px;object-fit:contain}
+.portalArtGrid .portalArtCard:not(.portalArtCardCarousel) .portalVideoButton{height:104px;min-height:104px;max-height:104px}
+.portalArtGrid .portalArtCard:not(.portalArtCardCarousel) .portalVideoButton video{height:100%;max-height:100%;object-fit:contain}
+.portalArtGrid .portalArtCardCarousel .portalAssets{grid-template-columns:repeat(2,84px);gap:8px;max-height:180px;overflow-y:auto}
+.portalArtGrid .portalArtCardCarousel .portalImageButton,.portalArtGrid .portalArtCardCarousel .portalVideoButtonCarousel{width:84px;height:84px;min-height:84px;max-height:84px;aspect-ratio:1/1}
+.portalArtGrid .portalArtCardCarousel .portalImageButton img,.portalArtGrid .portalArtCardCarousel .portalVideoButtonCarousel video{width:100%;height:100%;max-height:100%;object-fit:contain}
+.portalArtDetailBackdrop{position:fixed;inset:0;z-index:220;display:grid;place-items:center;padding:18px;background:rgba(15,15,15,.74)}
+.portalArtDetailModal{width:min(1000px,100%);max-height:92dvh;overflow:auto;padding:20px;border-radius:16px;background:#fff;box-shadow:0 20px 80px rgba(0,0,0,.3)}
+.portalArtDetailModal>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.portalArtDetailModal>header small{font-size:10px;letter-spacing:.1em;color:#777}
+.portalArtDetailModal>header h2{margin:5px 0;font-size:24px}
+.portalArtDetailModal>header p{margin:0;color:#65635e;font-size:13px}
+.portalArtDetailAssets{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.portalArtDetailAssets figure{min-width:0;margin:0;padding:10px;border:1px solid #e8e5de;border-radius:12px;background:#faf9f6}
+.portalArtDetailAssets figure>img,.portalArtDetailAssets figure>video{display:block;width:100%;max-height:60dvh;object-fit:contain;background:#efede7;border-radius:8px}
+.portalArtDetailAssets figcaption{margin-top:8px;color:#65635e;font-size:12px;line-height:1.45}
+.portalDetailChoice{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;font-weight:650}
+.portalDetailChoice input{accent-color:#2f5547}
+.portalArtDetailModal .portalArtDecision{display:grid;gap:12px;margin-top:18px;padding:16px;border-radius:12px;background:#f5f3ed}
+.portalArtDecision>p{margin:0;color:#555;font-size:13px}
+.portalArtDecision>label{display:grid;gap:7px;font-size:12px;font-weight:650}
+.portalArtDecision textarea{width:100%;min-height:78px;border:1px solid #dedbd2;border-radius:9px;padding:10px 12px;font:inherit;resize:vertical}
+.portalArtDecision>div{display:flex;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+@media(max-width:640px){.portalArtGrid>.portalArtCard{height:340px}.portalArtDetailModal{padding:14px}.portalArtDetailAssets{grid-template-columns:1fr}.portalArtDecision>div>*{flex:1}}
