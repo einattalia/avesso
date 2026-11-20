@@ -265,4 +265,4 @@
 
 /* Miniaturas quadradas para cards no formato Carrossel em qualquer etapa. */
 .productionArtCard.isCarousel .uxPreview.compact{width:min(100%,144px);height:auto;min-height:0;aspect-ratio:1/1;margin-inline:auto;flex:none}
-.productionArtCard.isCarousel .uxPreview.compact img,.productionArtCard.isCarousel .uxPreview.compact video{width:100%;height:100%;max-height:none;aspect-ratio:1/1;object-fit:cover}
+.productionArtCard.isCarousel .uxPreview.compact img,.productionArtCard.isCarousel .uxPreview.compact video{width:100%;height:100%;max-height:none;aspect-ratio:1/1;object-fit:contain}
