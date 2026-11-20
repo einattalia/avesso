@@ -372,3 +372,7 @@
 /* Keep the approval submission shortcut visible on compact production cards. */
 .productionArtCard.agencyProduction.collapsed .artCardToolbar .artSendApproval{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:6px 10px;border:0;border-radius:8px;background:#ffea00;color:#111;font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer}
 .productionArtCard.agencyProduction.collapsed .artCardToolbar .artSendApproval:hover{background:#f2dc00}
+
+
+/* Sent approval state: green badge with black text in production cards. */
+.uxStatus.approvalSent{background:#dff2e3!important;color:#111!important}
