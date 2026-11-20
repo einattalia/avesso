@@ -266,3 +266,9 @@
 /* Miniaturas quadradas para cards no formato Carrossel em qualquer etapa. */
 .productionArtCard.isCarousel .uxPreview.compact{width:min(100%,144px);height:auto;min-height:0;aspect-ratio:1/1;margin-inline:auto;flex:none}
 .productionArtCard.isCarousel .uxPreview.compact img,.productionArtCard.isCarousel .uxPreview.compact video{width:100%;height:100%;max-height:none;aspect-ratio:1/1;object-fit:contain}
+
+
+/* Compact carousel cards in the agency production board. */
+.productionArtCard.agencyProduction.isCarousel.collapsed{height:280px;max-width:190px;padding:8px;gap:5px}
+.productionArtCard.agencyProduction.isCarousel.collapsed .uxContentCard>.uxPreview.compact{width:96px;height:96px;min-height:96px;aspect-ratio:1/1;margin-inline:auto;flex:none}
+.productionArtCard.agencyProduction.isCarousel.collapsed .uxContentCard>.uxPreview.compact img,.productionArtCard.agencyProduction.isCarousel.collapsed .uxContentCard>.uxPreview.compact video{width:96px;height:96px;max-height:96px;aspect-ratio:1/1;object-fit:contain}
