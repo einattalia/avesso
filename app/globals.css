@@ -361,3 +361,14 @@
 .portalArtGrid .portalArtCardCarousel .portalAssets{grid-template-columns:repeat(2,104px);gap:10px}
 .portalArtGrid .portalArtCardCarousel .portalImageButton,.portalArtGrid .portalArtCardCarousel .portalVideoButtonCarousel{width:104px;height:104px;min-height:104px;max-height:104px}
 }
+
+
+/* Enlarge client portal artwork previews without changing the fixed card dimensions. */
+.portalArtGrid .portalArtCard:not(.portalArtCardCarousel) .portalImageLink img{height:128px;max-height:128px}
+.portalArtGrid .portalArtCard:not(.portalArtCardCarousel) .portalVideoButton{height:128px;min-height:128px;max-height:128px}
+.portalArtGrid .portalArtCardCarousel .portalAssets{grid-template-columns:repeat(2,128px);gap:10px}
+.portalArtGrid .portalArtCardCarousel .portalImageButton,.portalArtGrid .portalArtCardCarousel .portalVideoButtonCarousel{width:128px;height:128px;min-height:128px;max-height:128px}
+
+/* Keep the approval submission shortcut visible on compact production cards. */
+.productionArtCard.agencyProduction.collapsed .artCardToolbar .artSendApproval{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:6px 10px;border:0;border-radius:8px;background:#ffea00;color:#111;font-size:12px;font-weight:800;white-space:nowrap;cursor:pointer}
+.productionArtCard.agencyProduction.collapsed .artCardToolbar .artSendApproval:hover{background:#f2dc00}
