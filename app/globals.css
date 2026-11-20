@@ -378,7 +378,7 @@
 .uxStatus.approvalSent{background:#dff2e3!important;color:#111!important}
 
 /* Match the sent notice to the yellow approval action without making it clickable. */
-.productionArtCard.agencyProduction.collapsed .artCardToolbar .artApprovalSentNotice{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:6px 10px;border:0;border-radius:8px;background:#ffea00;color:#111;font-size:12px;font-weight:800;white-space:nowrap}
+.productionArtCard.agencyProduction.collapsed .artCardToolbar .artApprovalSentNotice{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:6px 10px;border:0;border-radius:8px;background:#c8edcf;color:#111;font-size:12px;font-weight:800;white-space:nowrap}
 
 /* Three compact client cards per desktop row; each carousel still shows two slides side by side. */
 @media(min-width:1000px){.portalArtGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
